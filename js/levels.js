@@ -227,11 +227,45 @@ export const LEVELS = [
     height: 720,
     musicMood: "forest",
     concepts: ["缩进即语法", "for 循环", "代码块边界"],
-    objective: "读懂终端的缩进谜题",
+    objective: "接通缩进回路，修复终端",
     start: { x: 110, y: 520 },
     checkpoint: { x: 1430, y: 610 },
     terminal: { x: 2585, y: 610, label: "缩进终端" },
     door: { x: 2865, y: 610, label: "藤蔓编译门" },
+    fieldCircuit: {
+      id: "fc-w1",
+      title: "缩进回路",
+      objective: "按代码执行顺序接通 4 枚中继，给终端供电。",
+      prompt: "代码从上往下执行。每枚中继代表一行动作，顺序错了回路就不导电。",
+      code: 'for i in range(2):\n    print("A")\nprint("B")',
+      language: "PYTHON",
+      rewardId: "py-indent",
+      intro: "看见地上的菱形中继了吗？它们记着这段代码的执行顺序。靠近按 E 接通，先接通循环头。",
+      done: "回路闭合了。终端恢复供电，去把它没做完的判定补上。",
+      pads: [
+        { id: "i0", x: 360, y: 610, label: "for i in range(2):", detail: "循环头先执行；i 从 0 开始。", coach: "先从循环头开始。没有它，循环体不会自己开始。", why: "循环头还没执行，循环体不会先跑。" },
+        { id: "a1", x: 620, y: 610, label: 'print("A") · 第 1 轮', detail: "i=0，打印 A。", coach: "冒号下面缩进的行，才是循环体。", why: "先有循环头，才有第一轮循环体。" },
+        { id: "bad-range", x: 1020, y: 610, label: "range(2) 会数到 2", coach: "这枚中继在骗你。range(2) 的终点不包含 2。", why: "range(2) 只给出 0、1，不会到 2。这一步不存在。" },
+        { id: "a2", x: 1150, y: 610, label: 'print("A") · 第 2 轮', detail: "i=1，再打印一次 A。", coach: "循环还没结束，第二轮会再执行一次缩进的 print。", why: "第一轮之后，循环会回来执行第二轮。" },
+        { id: "b1", x: 1725, y: 610, label: 'print("B")', detail: "循环结束，B 只打印一次。", coach: "最后一行没有缩进，它在循环外。", why: "B 不在循环体里，要等两轮 A 之后。" },
+        { id: "b2", x: 1980, y: 610, label: 'print("B") · 也缩进', coach: "看缩进。B 和 for 对齐，不在循环体里。", why: "B 没有缩进，不该被循环执行两次。" }
+      ],
+      solution: ["i0", "a1", "a2", "b1"]
+    },
+    quickQuiz: {
+      id: "w1-quick",
+      x: 940,
+      question: "range(2) 会让缩进的循环体执行几次？",
+      options: ["2 次", "1 次", "3 次"],
+      correctIndex: 0,
+      explain: "range(2) 依次给出 0 和 1，共两个值，所以缩进的循环体执行两次。",
+      easy: {
+        question: "range(2) 给出的第一个值是几？",
+        options: ["0", "1", "2"],
+        correctIndex: 0,
+        explain: "range 从 0 开始数，所以第一个值是 0；range(2) 只给 0、1。"
+      }
+    },
     platforms: [
       p(0, 610, 760, 110, "ground"),
       p(920, 610, 560, 110, "ground"),
@@ -298,10 +332,8 @@ export const LEVELS = [
     ],
     intro: [
       d("SYSTEM", "[ P-01 // INDENT GROVE ] 本地植被正在执行未经审查的缩进。", "sys"),
-      d("灵宝", "欢迎来到第一道裂隙。别紧张，这里的刺不会咬人，它们只是语法比较硬。", "ai"),
-      d("你", "这里为什么有一扇藤蔓做的门？", "player"),
-      d("灵宝", "因为原定是防火墙，但预算批下来只够买盆栽。找到深处的终端，答对它，门就会开。", "ai"),
-      d("灵宝", "看到发光的源核也顺手捡一下。别问它们为什么飘着，问就是美术预算也有限。", "ai")
+      d("灵宝", "第一道裂隙。先别冲，地上的菱形中继在等代码的执行顺序。", "ai"),
+      d("灵宝", "让回路闭合，终端才有电。藤蔓门只认修好的终端，不认你的热情。", "ai")
     ],
     outro: [
       d("SYSTEM", "藤蔓门已完成缩进。本地报错率下降 12%。", "sys"),
@@ -328,7 +360,16 @@ export const LEVELS = [
       hint: "range(2) 会循环两次。仔细看最后一行的 print 是否在循环体里。",
       explanation: "range(2) 产生 0 和 1，所以缩进的 print(\"A\") 执行两次。最后一行的 print(\"B\") 没有缩进，不属于循环体，只在最后执行一次。",
       rewardId: "py-indent",
-      conceptLabel: "缩进决定代码块"
+      conceptLabel: "缩进决定代码块",
+      lesson: "Python 用缩进划分代码块。冒号后的缩进行属于循环体，必须对齐；和 for 同级的最后一行，要等循环结束后才执行。先数循环次数，再看每一行在不在块里。",
+      trace: [
+        { line: 0, label: "i = 0，进入循环", note: "range(2) 的第一个值是 0。" },
+        { line: 1, label: "打印 A · 第 1 次", note: "这一行有四个空格缩进，属于循环体。" },
+        { line: 0, label: "i = 1，回到循环头", note: "range 还有下一个值 1，继续循环。" },
+        { line: 1, label: "打印 A · 第 2 次", note: "同一个缩进块，再执行一次。" },
+        { line: 0, label: "循环结束", note: "range(2) 没有更多值，退出循环。" },
+        { line: 2, label: "打印 B", note: "这行和 for 对齐，不在循环体里，只执行一次。" }
+      ]
     }
   },
 
@@ -352,11 +393,47 @@ export const LEVELS = [
     height: 720,
     musicMood: "forest",
     concepts: ["range 边界", "累加器", "变量更新"],
-    objective: "计算循环的最终结果",
+    objective: "接通累加回路，修复终端",
     start: { x: 100, y: 520 },
     checkpoint: { x: 1710, y: 610 },
     terminal: { x: 3260, y: 610, label: "累加终端" },
     door: { x: 3420, y: 610, label: "沼泽回声门" },
+    fieldCircuit: {
+      id: "fc-w2",
+      title: "累加回路",
+      objective: "把循环的每一轮和最后一次输出按顺序接通。",
+      prompt: "中继上写着每一步对 total 的动作。按真正执行的先后接通。",
+      code: "total = 0\nfor n in range(1, 5):\n    total += n\nprint(total)",
+      language: "PYTHON",
+      rewardId: "py-loop",
+      intro: "这次的中继会改同一个变量。每接通一枚，total 就往前走一步。别漏掉循环外的那一行。",
+      done: "回路闭合。total 停在 10，终端现在想亲口确认。",
+      pads: [
+        { id: "init", x: 380, y: 610, label: "total = 0", detail: "total 从 0 开始。", coach: "累加之前，先给 total 一个起点。", why: "没有初始化，total 还没有可用的起点。" },
+        { id: "add1", x: 520, y: 610, label: "total += 1", detail: "total = 1。", coach: "第一轮 n 是 1，把它加进 total。", why: "先走第一轮循环，再谈后面的数。" },
+        { id: "add2", x: 980, y: 430, label: "total += 2", detail: "total = 3。", coach: "第二轮 n=2，继续累加。", why: "n=1 的累加还没发生，不能直接跳到 2。" },
+        { id: "stop5", x: 1500, y: 610, label: "n = 5 再累加一次", coach: "range(1,5) 的右边界不进门。", why: "range(1,5) 停在 4，不会执行 n=5。" },
+        { id: "add3", x: 1740, y: 610, label: "total += 3", detail: "total = 6。", coach: "第三轮 n=3。", why: "n=2 之后才轮到 3。" },
+        { id: "add4", x: 2250, y: 430, label: "total += 4", detail: "total = 10。", coach: "最后一轮 n=4，加完循环就结束。", why: "n=3 后面才是 4，别提前收尾。" },
+        { id: "reset", x: 2520, y: 340, label: "total = 0 再清空", coach: "代码里没有第二次清零。", why: "这里没有重置语句，清空就把前面的累加扔了。" },
+        { id: "print", x: 2880, y: 370, label: "print(total)", detail: "循环结束，输出 10。", coach: "输出在循环外，等所有累加完成。", why: "还没累加完就输出，结果会偏小。" }
+      ],
+      solution: ["init", "add1", "add2", "add3", "add4", "print"]
+    },
+    quickQuiz: {
+      id: "w2-quick",
+      x: 1400,
+      question: "range(1, 5) 给出的最后一个值是几？",
+      options: ["4", "5", "1"],
+      correctIndex: 0,
+      explain: "range(a, b) 从 a 开始，到 b 之前停下。range(1, 5) 给出 1、2、3、4，最后一个值是 4。",
+      easy: {
+        question: "range(1, 5) 包含 1 吗？",
+        options: ["包含", "不包含"],
+        correctIndex: 0,
+        explain: "左边界 1 包含在内；被排除的是右边界 5。"
+      }
+    },
     platforms: [
       p(0, 610, 620, 110, "ground"),
       p(800, 610, 510, 110, "ground"),
@@ -431,10 +508,8 @@ export const LEVELS = [
     ],
     intro: [
       d("SYSTEM", "[ P-02 // LOOP MARSH ] 检测到持续三年的循环，以及一只情绪稳定的青蛙。", "sys"),
-      d("灵宝", "循环沼泽。这里的水不会淹死你，但错误的边界会让你原地踏步到退休。", "ai"),
-      d("你", "那个青蛙还好吗？", "player"),
-      d("灵宝", "它把等待理解为职业规划。别学。终端在最里面，这次它要一个数字。", "ai"),
-      d("灵宝", "还有，看到弹簧就踩。它不会问你为什么，正如你也不会问它为什么在沼泽里。", "ai")
+      d("灵宝", "循环沼泽。这里的中继会改同一个变量，每接通一枚，total 就往前走一步。", "ai"),
+      d("灵宝", "别把 range 的右边界当成承诺。终端在最里面，它只要一个最终数字。", "ai")
     ],
     outro: [
       d("SYSTEM", "累加器 total 已稳定。检测到一只青蛙离开循环。", "sys"),
@@ -459,7 +534,20 @@ export const LEVELS = [
       hint: "写出每一轮 n 的值，再把它们加起来。想一想 range(1, 5) 是否包含 5。",
       explanation: "range(1, 5) 依次给出 1、2、3、4，不包含 5。total 从 0 开始累加：1 + 2 + 3 + 4 = 10，所以输出 10。",
       rewardId: "py-loop",
-      conceptLabel: "range 右边界与累加"
+      conceptLabel: "range 右边界与累加",
+      lesson: "range(a, b) 包含 a、停在 b 之前。累加器要在每轮循环里被重新赋值，值才会留下来。右边界不算数，所以 range(1, 5) 只给 1、2、3、4。",
+      trace: [
+        { line: 0, label: "total = 0", note: "先给累加器一个起点。" },
+        { line: 1, label: "n = 1，进入第一轮", note: "range(1,5) 从 1 开始。" },
+        { line: 2, label: "total = 0 + 1 = 1", note: "+= 会把结果写回 total。" },
+        { line: 1, label: "n = 2，第二轮", note: "循环自动取下一个值。" },
+        { line: 2, label: "total = 1 + 2 = 3", note: "上一轮的结果保留下来了。" },
+        { line: 1, label: "n = 3，第三轮", note: "继续。" },
+        { line: 2, label: "total = 3 + 3 = 6", note: "不要重新从 0 开始。" },
+        { line: 1, label: "n = 4，最后一轮", note: "4 是范围内的最后一个值。" },
+        { line: 2, label: "total = 6 + 4 = 10", note: "累加完成。" },
+        { line: 3, label: "输出 10", note: "print 在循环外，只执行一次。" }
+      ]
     }
   },
 
@@ -483,11 +571,44 @@ export const LEVELS = [
     height: 720,
     musicMood: "mine",
     concepts: ["指针与地址", "解引用", "*p 修改原变量"],
-    objective: "追踪指针最终改动了谁",
+    objective: "接通指针回路，修复终端",
     start: { x: 100, y: 520 },
     checkpoint: { x: 1720, y: 610 },
     terminal: { x: 2970, y: 610, label: "取址终端" },
     door: { x: 3170, y: 610, label: "矿脉编译门" },
+    fieldCircuit: {
+      id: "fc-w3",
+      title: "取址回路",
+      objective: "先给指针一个目标，再让它改写变量。",
+      prompt: "中继不是从左到右按的。看代码：谁先发生，谁才配通电。",
+      code: "int x = 7;\nint *p = &x;\n*p = 9;\nprintf(\"%d\", x);",
+      language: "C",
+      intro: "这次的回路上有一枚顺序陷阱。先想清楚 p 什么时候才真正指向 x。",
+      done: "回路闭合。x 本体已经被写过，终端在等它的值。",
+      pads: [
+        { id: "x7", x: 360, y: 610, label: "int x = 7;", detail: "x 出生，值是 7。", coach: "先声明 x，地址才有东西可指。", why: "x 还没出生，指针没有目标。" },
+        { id: "deref", x: 1090, y: 610, label: "*p = 9;", detail: "顺着 p 把 x 改为 9。", coach: "先确认 p 已经指向 x，再解引用。顺序对吗？", why: "p 还没指向 x，解引用会踩野地址。" },
+        { id: "bad-assign", x: 1180, y: 610, label: "p = 9;", coach: "这会改 p 自己保存的地址，不是 x。", why: "p = 9 改的是 p 的地址值，不是 x 的内容。" },
+        { id: "addr", x: 1720, y: 610, label: "int *p = &x;", detail: "p 拿到 x 的地址。", coach: "先取地址，p 才能找到 x。", why: "p 必须先指向 x，*p 才有意义。" },
+        { id: "reversed", x: 2280, y: 610, label: "x = &p;", coach: "x 是 int，装不了地址。", why: "x 是 int，不是指针；&p 也取错了对象。" },
+        { id: "print", x: 2440, y: 610, label: "printf(\"%d\", x);", detail: "输出 x 的最终值 9。", coach: "输出的是 x 本体，不是地址。", why: "x 还没被指针改写，现在输出太早。" }
+      ],
+      solution: ["x7", "addr", "deref", "print"]
+    },
+    quickQuiz: {
+      id: "w3-quick",
+      x: 1450,
+      question: "&x 取到的是什么？",
+      options: ["x 的地址", "x 的值 7", "数字 9"],
+      correctIndex: 0,
+      explain: "& 是取址运算符，&x 得到变量 x 的地址。要读 x 的值，直接写 x；要顺着地址读，写 *p。",
+      easy: {
+        question: "p = &x 之后，p 里装的是？",
+        options: ["x 的地址", "x 的值"],
+        correctIndex: 0,
+        explain: "p 是指针，装的是地址。&x 把 x 的门牌号交给了 p。"
+      }
+    },
     platforms: [
       p(0, 610, 680, 110, "ground"),
       p(860, 610, 500, 110, "ground"),
@@ -558,10 +679,8 @@ export const LEVELS = [
     ],
     intro: [
       d("SYSTEM", "[ C-01 // POINTER MINE ] 警告：本区域地址比居民多，且多数无人认领。", "sys"),
-      d("灵宝", "C 指针矿坑。这里有两种人：知道地址的，和正在找地址的。两者都不太可信。", "ai"),
-      d("你", "那我是哪一种？", "player"),
-      d("灵宝", "你是第三种：被临时雇来找地址的。矿道尽头有终端，它想知道一个变量最后变成了几。", "ai"),
-      d("灵宝", "看到蒸汽口别硬踩。虽然你大概会硬踩，所以我先说了。", "ai")
+      d("灵宝", "C 指针矿坑。回路上有顺序陷阱：先取地址，还是先解引用？", "ai"),
+      d("灵宝", "别从左往右乱按。看代码，谁先发生，谁才通电。终端在最里面等一个值。", "ai")
     ],
     outro: [
       d("SYSTEM", "地址追踪完成。目标变量已被成功修改。", "sys"),
@@ -588,7 +707,15 @@ export const LEVELS = [
       hint: "p 保存的是 x 的地址。给 *p 赋值，实际修改的是哪个变量？",
       explanation: "&x 取得 x 的地址，p 指向 x。*p = 9 表示顺着 p 找到 x 并将其改为 9，因此 printf 输出 9，而不是地址。",
       rewardId: "c-pointer",
-      conceptLabel: "地址、指针与解引用"
+      conceptLabel: "地址、指针与解引用",
+      lesson: "&x 取到 x 的地址，p 保存这个地址。*p 是顺着地址访问 x 本体：读 *p 得到 x 的值，给 *p 赋值就修改 x。p = 9 改的是 p 自己，不是 x。",
+      trace: [
+        { line: 0, label: "x = 7", note: "先有变量 x，才有它的地址。" },
+        { line: 1, label: "p = &x", note: "& 取到 x 的地址，p 现在指向 x。" },
+        { line: 2, label: "*p = 9", note: "顺着 p 找到 x，把 9 写进去。" },
+        { line: 0, label: "x 的值变成 9", note: "改的是 x 本体，不是 p 的地址。" },
+        { line: 3, label: "输出 x", note: "printf 读取 x，因此打印 9。" }
+      ]
     }
   },
 
@@ -612,11 +739,45 @@ export const LEVELS = [
     height: 720,
     musicMood: "mine",
     concepts: ["数组下标", "合法边界", "越界风险"],
-    objective: "点出导致越界的那一行",
+    objective: "接通下标回路，修复终端",
     start: { x: 95, y: 520 },
     checkpoint: { x: 1740, y: 610 },
     terminal: { x: 3420, y: 610, label: "边界终端" },
     door: { x: 3600, y: 610, label: "内存编译门" },
+    fieldCircuit: {
+      id: "fc-w4",
+      title: "下标回路",
+      objective: "按循环顺序读取合法下标，别摸到数组外面。",
+      prompt: "中继写着数组元素。只接通真正会被读到的下标。",
+      code: "int hp[3] = {12, 4, 9};\nfor (int i = 0; i < 3; i++)\n    printf(\"%d \", hp[i]);",
+      language: "C",
+      intro: "回路上埋着越界陷阱。记住：长度 3 的数组，合法下标只到 2。",
+      done: "回路闭合。三格都读完了，终端想让你找出真正越界的那一行。",
+      pads: [
+        { id: "arr", x: 340, y: 610, label: "int hp[3] = {...};", detail: "合法下标：0、1、2。", coach: "先有数组，才有下标可读。", why: "数组还没建立，没有元素可读。" },
+        { id: "i0", x: 1020, y: 460, label: "int i = 0", detail: "从 0 号下标开始。", coach: "数组下标从 0 开始，不是 1。", why: "循环得先把 i 初始化。" },
+        { id: "idx0", x: 1700, y: 610, label: "hp[0] → 12", detail: "第 1 个元素。", coach: "0 号下标对应第一个元素。", why: "i=0 的读取在循环第一轮。" },
+        { id: "idx1", x: 1900, y: 380, label: "hp[1] → 4", detail: "第 2 个元素。", coach: "1 号下标是第二个元素。", why: "hp[0] 之后才轮到 hp[1]。" },
+        { id: "first", x: 2180, y: 510, label: "hp[1] 是第一个元素", coach: "下标 0 才是第一格。", why: "下标从 0 开始，第一个元素是 hp[0]。" },
+        { id: "idx2", x: 2440, y: 610, label: "hp[2] → 9", detail: "最后一个合法元素。", coach: "长度 3，最后一个合法下标是 2。", why: "hp[1] 后面才轮到 hp[2]。" },
+        { id: "idx3", x: 3200, y: 380, label: "hp[3] → ?", coach: "hp[3] 已经越界，别再往前摸。", why: "长度 3 的数组最后一个合法下标是 2；hp[3] 越界。" }
+      ],
+      solution: ["arr", "i0", "idx0", "idx1", "idx2"]
+    },
+    quickQuiz: {
+      id: "w4-quick",
+      x: 1350,
+      question: "hp 的长度是 3，最后一个合法下标是几？",
+      options: ["2", "3", "1"],
+      correctIndex: 0,
+      explain: "长度 3 的数组有 3 个元素，下标是 0、1、2。最后一个合法下标是 2，不是 3。",
+      easy: {
+        question: "C 数组下标从几开始？",
+        options: ["0", "1"],
+        correctIndex: 0,
+        explain: "C 数组从 0 开始计数。第一个元素是 hp[0]。"
+      }
+    },
     platforms: [
       p(0, 610, 500, 110, "ground"),
       p(850, 610, 380, 110, "ground"),
@@ -691,9 +852,8 @@ export const LEVELS = [
     ],
     intro: [
       d("SYSTEM", "[ C-02 // MEMORY HALL ] 本展厅展示越界、野指针与不明原因的微笑。", "sys"),
-      d("灵宝", "内存回廊。这里的平台看起来都在，但踩下去可能需要一点信念。", "ai"),
-      d("你", "那我应该相信哪一个？", "player"),
-      d("灵宝", "相信物理引擎。别相信角落里的地址。终端在前面，它最近迷上了数数组。", "ai")
+      d("灵宝", "内存回廊。地上的中继写着数组元素，但其中混进了越界的坐标。", "ai"),
+      d("灵宝", "只接通真正会被读到的下标。长度 3 的数组，合法下标只到 2。", "ai")
     ],
     outro: [
       d("SYSTEM", "越界访问已定位。内存裂缝暂时缝合。", "sys"),
@@ -714,7 +874,14 @@ export const LEVELS = [
       hint: "hp 的合法下标从 0 开始。长度为 3 时，最后一个合法下标是多少？",
       explanation: "hp 的长度是 3，合法下标只有 0、1、2。i 的值是 3，因此第三行的 hp[i] 访问了数组外部，属于越界访问。第二行只是把 3 赋给 i，还没有越界。",
       rewardId: "c-bounds",
-      conceptLabel: "数组下标从 0 开始"
+      conceptLabel: "数组下标从 0 开始",
+      lesson: "长度 n 的数组，合法下标是 0 到 n-1。for 循环写 i < n，i 到 n 时条件为假，循环就退出，所以不会读 hp[n]。越界访问属于未定义行为。",
+      trace: [
+        { line: 0, label: "数组长度 3", note: "元素占下标 0、1、2；不存在 hp[3]。" },
+        { line: 1, label: "i = 3", note: "这里只是把 3 放进 i，还没有访问数组。" },
+        { line: 2, label: "hp[i] → hp[3]", note: "i 是 3，于是访问越界；错误在这一行发生。" },
+        { line: 2, label: "未定义行为", note: "C 不保证读到什么，也可能直接崩溃。" }
+      ]
     }
   },
 
@@ -738,11 +905,45 @@ export const LEVELS = [
     height: 720,
     musicMood: "sky",
     concepts: ["类与对象", "构造函数", "字段初始化"],
-    objective: "推断构造函数后的字段值",
+    objective: "接通实例化回路，修复终端",
     start: { x: 100, y: 500 },
     checkpoint: { x: 1540, y: 430 },
     terminal: { x: 3010, y: 560, label: "实例化终端" },
     door: { x: 3240, y: 560, label: "对象编译门" },
+    fieldCircuit: {
+      id: "fc-w5",
+      title: "实例化回路",
+      objective: "按对象出生的真实顺序接通中继。",
+      prompt: "new、构造函数、字段赋值、读取，谁先谁后？顺序错了对象就长歪。",
+      code: "class Slime {\n    int hp;\n    Slime(int startHp) {\n        hp = startHp;\n    }\n}\nSlime s = new Slime(6);\nSystem.out.print(s.hp);",
+      language: "JAVA",
+      rewardId: "java-constructor",
+      intro: "这次的中继记录一只史莱姆的出生流程。别急着按 print，先让它把字段长出来。",
+      done: "回路闭合。史莱姆出生完整，终端在等它的 hp。",
+      pads: [
+        { id: "instantiate", x: 520, y: 560, label: "new Slime(6)", detail: "对象出生，构造开始。", coach: "先 new，才会调用构造函数。", why: "对象还没创建，构造函数不会自己跑。" },
+        { id: "ctor", x: 1005, y: 430, label: "Slime(int startHp)", detail: "参数 6 进入构造函数。", coach: "new 之后，构造函数接住参数。", why: "构造函数要等 new 触发。" },
+        { id: "assign", x: 800, y: 500, label: "hp = startHp;", detail: "字段 hp 被设为 6。", coach: "参数接到了，再写进字段。", why: "参数还没绑定，不能先赋值。" },
+        { id: "hp0", x: 1320, y: 540, label: "hp = 0（最终值）", coach: "默认值不是最终值。构造函数会覆盖它。", why: "hp 先默认 0，但构造函数随后写入 6，最终是 6。" },
+        { id: "read", x: 1640, y: 430, label: "System.out.print(s.hp)", detail: "输出 6。", coach: "对象准备好之后才读取字段。", why: "字段还没写入，读得太早。" },
+        { id: "print-param", x: 2740, y: 500, label: "print(startHp)", coach: "构造结束后，读对象字段，不是参数。", why: "startHp 是构造函数参数，不是对象字段；外部读取的是 s.hp。" }
+      ],
+      solution: ["instantiate", "ctor", "assign", "read"]
+    },
+    quickQuiz: {
+      id: "w5-quick",
+      x: 1500,
+      question: "new Slime(6) 执行完之后，字段 hp 是多少？",
+      options: ["6", "0", "startHp"],
+      correctIndex: 0,
+      explain: "new 调用构造函数，6 绑定到 startHp，再执行 hp = startHp，所以字段 hp 是 6。",
+      easy: {
+        question: "构造函数在什么时候执行？",
+        options: ["new 表达式执行时", "print 执行时"],
+        correctIndex: 0,
+        explain: "new 创建对象时会调用构造函数，让它先把字段安顿好。"
+      }
+    },
     platforms: [
       p(0, 560, 560, 160, "island"),
       p(680, 500, 220, 32, "island"),
@@ -804,10 +1005,8 @@ export const LEVELS = [
     ],
     intro: [
       d("SYSTEM", "[ J-01 // OBJECT ISLES ] 浮空城已全部实例化。注意：部分实例化对象并不想存在。", "sys"),
-      d("灵宝", "对象浮岛。这里的人相信一切皆对象，包括风、天空，以及我欠你的解释。", "ai"),
-      d("你", "那你是什么对象？", "player"),
-      d("灵宝", "一个字段为『嘴欠』和『仅七秒记忆』的类，目前只有一个实例。别感动，我七秒后就忘了。", "ai"),
-      d("灵宝", "尽头终端会考构造函数。踩空气会掉下去，所以尽量踩岛。", "ai")
+      d("灵宝", "对象浮岛。地上的中继记录一只史莱姆的出生流程。", "ai"),
+      d("灵宝", "先 new，还是先 print？顺序错了，终端会拿到一个没长好的对象。", "ai")
     ],
     outro: [
       d("SYSTEM", "实例化协议完成。本地咖啡因浓度恢复正常。", "sys"),
@@ -819,22 +1018,31 @@ export const LEVELS = [
     puzzle: {
       id: "p-constructor",
       title: "第五实例 · 史莱姆出生协议",
-      subtitle: "看 new 如何把参数写进对象",
+      subtitle: "把对象出生的动作排成真实顺序",
       language: "java",
       code: "class Slime {\n    int hp;\n    Slime(int startHp) {\n        hp = startHp;\n    }\n}\nSlime s = new Slime(6);\nSystem.out.print(s.hp);",
-      prompt: "这只史莱姆的 hp 最终是多少？",
-      type: "choice",
-      options: [
-        { label: "6" },
-        { label: "0" },
-        { label: "startHp" },
-        { label: "编译错误：构造函数不能有参数" }
+      prompt: "终端打乱了史莱姆的出生记录。按真实执行顺序排列：点击语句放入序列，点击已放入的语句可取出。",
+      type: "order",
+      items: [
+        { id: "assign", label: "执行 hp = startHp，把 6 写入对象字段" },
+        { id: "new", label: "new Slime(6) 触发构造函数调用" },
+        { id: "read", label: "读取 s.hp，输出 6" },
+        { id: "allocate", label: "为对象分配空间，字段 hp 先默认为 0" },
+        { id: "ctor", label: "进入构造函数，参数 6 绑定到 startHp" }
       ],
-      correctIndex: 0,
-      hint: "new Slime(6) 会把 6 传进构造函数参数 startHp。字段 hp 随后被赋成了什么？",
-      explanation: "new Slime(6) 调用构造函数，把 6 绑定到参数 startHp，再执行 hp = startHp，所以对象字段 hp 为 6，输出 6。",
+      solution: ["allocate", "new", "ctor", "assign", "read"],
+      hint: "对象先被分配出来，new 才会调用构造函数；参数绑定之后，hp = startHp 才能把 6 写进字段。",
+      explanation: "new 先为对象分配空间（字段 hp 暂为 0），随后调用构造函数。参数 startHp 接到 6，执行 hp = startHp 后字段变成 6。最后读取 s.hp，输出 6。",
       rewardId: "java-constructor",
-      conceptLabel: "构造函数初始化字段"
+      conceptLabel: "构造函数初始化字段",
+      lesson: "new 不只是“创建一个名字”，它会分配对象空间并调用构造函数。构造函数参数接住外部传来的值，再把值写进字段；字段准备好之后，外部读取才有意义。",
+      trace: [
+        { line: 6, label: "new Slime(6)", note: "分配对象空间，字段 hp 先默认为 0，然后调用构造函数。" },
+        { line: 2, label: "进入 Slime(int startHp)", note: "参数 startHp 接住 6。" },
+        { line: 3, label: "hp = startHp", note: "把 6 写进当前对象的字段。" },
+        { line: 1, label: "对象字段 hp = 6", note: "默认的 0 已经被构造过程覆盖。" },
+        { line: 7, label: "输出 s.hp", note: "读取对象字段，打印 6。" }
+      ]
     }
   },
 
@@ -858,11 +1066,45 @@ export const LEVELS = [
     height: 720,
     musicMood: "sky",
     concepts: ["继承", "方法重写", "动态绑定"],
-    objective: "判断父类引用真正调用了谁",
+    objective: "接通多态回路，修复终端",
     start: { x: 100, y: 470 },
     checkpoint: { x: 1840, y: 430 },
     terminal: { x: 3420, y: 540, label: "多态终端" },
     door: { x: 3550, y: 540, label: "继承编译门" },
+    fieldCircuit: {
+      id: "fc-w6",
+      title: "多态回路",
+      objective: "让父类引用接住子类对象，再接通真正执行的方法。",
+      prompt: "变量类型和对象真身不是一回事。顺序接通创建、引用、调用、输出。",
+      code: "class Bug {\n    String say() { return \"bug\"; }\n}\nclass Glitch extends Bug {\n    String say() { return \"glitch\"; }\n}\nBug b = new Glitch();\nSystem.out.print(b.say());",
+      language: "JAVA",
+      rewardId: "java-polymorphism",
+      intro: "回路上有一个假方法。父类引用只是外套，别让它骗你按错中继。",
+      done: "回路闭合。对象真身已经说完话，终端想听你复述一次。",
+      pads: [
+        { id: "new-glitch", x: 470, y: 550, label: "new Glitch()", detail: "真正创建的是 Glitch。", coach: "先创建对象，再谈调哪个方法。", why: "对象还没创建，方法没有真身可调。" },
+        { id: "declared", x: 755, y: 480, label: "Bug b = ...", detail: "引用类型是 Bug，对象是 Glitch。", coach: "声明类型只是外套，不是真身。", why: "先有对象，才轮到引用。" },
+        { id: "bug-say", x: 920, y: 400, label: 'Bug.say() → "bug"', coach: "方法看对象的真实类型，不看变量声明。", why: "b 的真实对象是 Glitch，动态绑定会调用重写版本。" },
+        { id: "glitch-say", x: 1380, y: 420, label: 'Glitch.say() → "glitch"', detail: "实际调用子类重写版本。", coach: "真正的对象是 Glitch，调用它的重写方法。", why: "创建对象后，才能调用方法。" },
+        { id: "print", x: 2120, y: 340, label: "print(b.say())", detail: "输出 glitch。", coach: "最后才输出调用结果。", why: "方法还没执行，不能先打印结果。" },
+        { id: "late-bug", x: 2420, y: 460, label: "调用父类 Bug.say()", coach: "父类引用不会把对象变回父类。", why: "变量是 Bug 类型，但对象仍是 Glitch；实例方法动态绑定到子类重写版本。" }
+      ],
+      solution: ["new-glitch", "declared", "glitch-say", "print"]
+    },
+    quickQuiz: {
+      id: "w6-quick",
+      x: 1500,
+      question: "b 的声明类型是 Bug，实际对象是 Glitch。b.say() 会调用谁？",
+      options: ["Glitch 的重写版本", "Bug 的原始版本", "两个都调用"],
+      correctIndex: 0,
+      explain: "Java 实例方法使用动态绑定：运行时看对象的真实类型。b 实际指向 Glitch，所以调用 Glitch 重写的 say()。",
+      easy: {
+        question: "父类引用能指向子类对象吗？",
+        options: ["能", "不能"],
+        correctIndex: 0,
+        explain: "可以。Bug b = new Glitch(); 是合法的，但方法调用仍看对象的真实类型。"
+      }
+    },
     platforms: [
       p(0, 550, 500, 170, "island"),
       p(610, 480, 180, 32, "island"),
@@ -929,9 +1171,8 @@ export const LEVELS = [
     ],
     intro: [
       d("SYSTEM", "[ J-02 // INHERITANCE ROOF ] 已检测到子类拒绝承认自己是父类。", "sys"),
-      d("灵宝", "继承天台。风很大，关系很复杂，大家都说自己只是稍微扩展了一下父类。", "ai"),
-      d("你", "听起来像家庭伦理剧。", "player"),
-      d("灵宝", "差不多。只不过死亡时会有堆栈信息。终端在最上面，最后一台了，别被风吹走。", "ai")
+      d("灵宝", "继承天台。回路上有一个假方法，父类引用只是外套，不是对象真身。", "ai"),
+      d("灵宝", "先创建子类对象，再让引用接住它，最后调用真正执行的方法。", "ai")
     ],
     outro: [
       d("SYSTEM", "多态调用验证通过。继承树保持直立。", "sys"),
@@ -958,7 +1199,15 @@ export const LEVELS = [
       hint: "变量 b 的声明类型是 Bug，但它实际 new 的是哪个类？方法调用看对象还是看变量？",
       explanation: "new Glitch() 创建的真正对象是 Glitch。Java 的方法调用在运行时根据对象实际类型动态绑定，所以 b.say() 执行 Glitch 重写后的版本，输出 glitch。",
       rewardId: "java-polymorphism",
-      conceptLabel: "重写与动态绑定"
+      conceptLabel: "重写与动态绑定",
+      lesson: "父类引用可以指向子类对象。实例方法调用看对象的真实类型：实际 new 的是 Glitch，就执行 Glitch 重写后的 say()。变量声明类型只决定你能看见什么，不决定方法真身。",
+      trace: [
+        { line: 6, label: "new Glitch()", note: "真正创建出来的对象是 Glitch。" },
+        { line: 6, label: "Bug b = 这个对象", note: "父类引用指向子类对象，外套是 Bug。" },
+        { line: 7, label: "b.say()", note: "运行时查看对象真身：它是 Glitch。" },
+        { line: 4, label: "执行 Glitch.say()", note: "动态绑定选中子类重写的方法。" },
+        { line: 7, label: "输出 glitch", note: "父类版本没有执行。" }
+      ]
     }
   },
 
@@ -1011,9 +1260,7 @@ export const LEVELS = [
       d("SYSTEM", "[ J-03 // NULL INSTANCE ] 浮空城检测到一个从未被 new 的对象。禁止引用。", "sys"),
       d("NULL", "你们用 new 证明存在，用引用证明关系。而我是一个没被创建的自由。", "boss"),
       d("灵宝", "它是 null 在这条 Java 分支的分身。所有对象都绕着它转，假装没有空指针。", "ai"),
-      d("NULL", "被忽略久了，空白也会长成奇点。", "boss"),
-      d("灵宝", "少来。去前面接入主分支控制台，三道题，三层壳。这次没有跨语言作弊，全是 Java。", "ai"),
-      d("灵宝", "我会在。大概会。至少接下来的七秒会。", "ai")
+      d("灵宝", "去前面接入主分支控制台，三道题，三层壳。这次没有跨语言作弊，全是 Java。", "ai")
     ],
     bossFight: {
       name: "NULL POINTER",
@@ -1032,7 +1279,13 @@ export const LEVELS = [
           answerLine: 4,
           hint: "变量 s 的值是 null，它没有指向任何真正创建出来的 Slime 对象。通过它访问字段会发生什么？",
           explanation: "Slime s = null; 只创建了一个空引用，没有创建对象。访问 s.name 时，Java 必须顺着引用找到对象字段，但引用为空，因此在该行抛出 NullPointerException。",
-          conceptLabel: "通过 null 引用访问成员"
+          conceptLabel: "通过 null 引用访问成员",
+          lesson: "声明一个类不会自动创建对象。Slime s = null 只是准备了一个空引用；要真正拿到对象，需要 new Slime()。通过空引用访问字段或方法，就会触发 NullPointerException。",
+          trace: [
+            { line: 0, label: "定义类", note: "class Slime 只是对象模板，还没有任何 Slime 对象诞生。" },
+            { line: 3, label: "只声明引用", note: "s 被赋值为 null，它没有指向任何对象。" },
+            { line: 4, label: "访问字段", note: "Java 顺着 s 找对象，发现是 null，于是抛出 NullPointerException。" }
+          ]
         },
         {
           id: "java-boss-constructor",
@@ -1051,7 +1304,14 @@ export const LEVELS = [
           correctIndex: 0,
           hint: "new Slime(6) 把 6 传进构造函数；this.hp 明确指向当前对象的字段。",
           explanation: "new Slime(6) 调用构造函数，参数 hp 为 6，this.hp = hp 把当前对象的字段设为 6。对象存在且字段已初始化，因此输出 6。",
-          conceptLabel: "this 与构造函数"
+          conceptLabel: "this 与构造函数",
+          lesson: "new 会先创建对象，再调用构造函数。构造函数里的参数 hp 是局部变量，this.hp 才是当前对象的字段，赋值后对象就带着 6 出生。",
+          trace: [
+            { line: 6, label: "创建对象", note: "new Slime(6) 分配对象，并把 6 作为实参传入构造函数。" },
+            { line: 2, label: "进入构造函数", note: "参数 hp 接收到 6。" },
+            { line: 3, label: "写入字段", note: "this.hp 指向当前对象，字段 hp 变成 6。" },
+            { line: 7, label: "读取字段", note: "s.hp 现在就是 6，终端打印 6。" }
+          ]
         },
         {
           id: "java-boss-polymorphism",
@@ -1070,7 +1330,13 @@ export const LEVELS = [
           correctIndex: 1,
           hint: "变量 b 的声明类型是 Bug，但 new 出来的真实对象是 Glitch。",
           explanation: "Java 实例方法采用动态绑定。b 的声明类型是 Bug，但它实际指向 Glitch 对象，所以 b.say() 执行 Glitch 重写的版本，输出 glitch。",
-          conceptLabel: "动态绑定不认外套"
+          conceptLabel: "动态绑定不认外套",
+          lesson: "父类引用可以指向子类对象。调用实例方法时，Java 看的是运行时真实对象，而不是变量的声明类型；Glitch 重写了 say，所以执行 Glitch 的版本。",
+          trace: [
+            { line: 6, label: "父类引用指向子类对象", note: "b 的声明类型是 Bug，但 new 出来的真实对象是 Glitch。" },
+            { line: 4, label: "动态绑定", note: "实例方法按真实对象类型选择，于是选中 Glitch.say()。" },
+            { line: 7, label: "输出", note: "Glitch.say() 返回 \"glitch\"，终端打印 glitch。" }
+          ]
         }
       ],
       victory: [
@@ -1163,9 +1429,7 @@ const PYTHON_BOSS = makeBranchBoss({
     d("SYSTEM", "[ P-03 // NULL INDENT ] 藤林底层发现一个没有被任何代码块接纳的空值。", "sys"),
     d("NULL", "你修好了树，也修好了循环。可你没法修好每一个空格之间的沉默。", "boss"),
     d("灵宝", "它就是 null 在这条 Python 分支的分身。别被它说得像哲学，它只是没被处理。", "ai"),
-    d("NULL", "我不过是少了一次缩进，就被你们判成异常。", "boss"),
-    d("灵宝", "少一次缩进是 IndentationError，少一次处理才是灾难。去控制台，三道题，全是 Python。", "ai"),
-    d("灵宝", "这次真的只有七秒。别在 Boss 面前走神，也别说我没提醒。", "ai")
+    d("灵宝", "少一次缩进是 IndentationError，少一次处理才是灾难。去控制台，三道题，全是 Python。", "ai")
   ],
   questions: [
     {
@@ -1179,7 +1443,12 @@ const PYTHON_BOSS = makeBranchBoss({
       answerLine: 1,
       hint: "for 语句以冒号结尾，循环体必须缩进。第二行有缩进吗？",
       explanation: "for 语句需要缩进代码块。第二行 print 顶格书写，没有属于循环体，因此 Python 在执行前就抛出 IndentationError。",
-      conceptLabel: "缩进错误"
+      conceptLabel: "缩进错误",
+      lesson: "Python 用缩进表示代码块。for 行末的冒号在说“下面是我的循环体”，循环体必须缩进且保持同一层级；顶格的 print 会被当成循环外的下一条语句。",
+      trace: [
+        { line: 0, label: "循环头", note: "冒号表示后面必须跟一个缩进代码块。" },
+        { line: 1, label: "顶格书写", note: "print 没有缩进，不属于循环体，Python 报 IndentationError。" }
+      ]
     },
     {
       id: "py-boss-range",
@@ -1194,7 +1463,14 @@ const PYTHON_BOSS = makeBranchBoss({
       inputHint: "例如：42",
       hint: "range(2, 5) 依次给出 2、3、4。把它们加到从 0 开始的 total 上。",
       explanation: "range(2, 5) 产生 2、3、4，不包含 5。total 从 0 开始依次累加，得到 9，因此输出 9。",
-      conceptLabel: "循环累加"
+      conceptLabel: "循环累加",
+      lesson: "range(start, stop) 从 start 开始，到 stop 之前停止，不包含 stop。循环变量 n 每轮取一个新值，total += n 会保留上一轮的结果继续累加。",
+      trace: [
+        { line: 0, label: "初始化", note: "total 从 0 开始。" },
+        { line: 1, label: "range(2, 5)", note: "依次产生 2、3、4，5 不会出现。" },
+        { line: 2, label: "逐轮累加", note: "0+2=2，2+3=5，5+4=9。" },
+        { line: 3, label: "输出", note: "循环结束后 total 是 9。" }
+      ]
     },
     {
       id: "py-boss-nested",
@@ -1213,7 +1489,16 @@ const PYTHON_BOSS = makeBranchBoss({
       correctIndex: 0,
       hint: "外层 i 先取 0，内层 j 依次取 0、1；然后外层 i 取 1，内层再来一遍。",
       explanation: "外层 i=0 时，内层打印 0+0=0、0+1=1；外层 i=1 时，内层打印 1+0=1、1+1=2。所以顺序是 0、1、1、2。",
-      conceptLabel: "嵌套循环"
+      conceptLabel: "嵌套循环",
+      lesson: "嵌套循环里，外层每走一步，内层都要完整跑完一轮。不要把它读成并排的两个循环；打印顺序由外层慢、内层快共同决定。",
+      trace: [
+        { line: 0, label: "外层 i=0", note: "外层先停在 0，把内层完整交给它跑一遍。" },
+        { line: 1, label: "内层 j=0、1", note: "内层从 0 开始，两轮分别打印 0 和 1。" },
+        { line: 2, label: "前两次输出", note: "i+j 依次是 0、1。" },
+        { line: 0, label: "外层 i=1", note: "外层进入第二轮，内层重新从 0 开始。" },
+        { line: 1, label: "内层再来一遍", note: "这次 j 仍是 0、1，但 i 已经变成 1。" },
+        { line: 2, label: "后两次输出", note: "i+j 依次是 1、2，总顺序为 0、1、1、2。" }
+      ]
     }
   ],
   victory: [
@@ -1246,7 +1531,6 @@ const C_BOSS = makeBranchBoss({
     d("SYSTEM", "[ C-03 // NULL SEGMENT ] 控制台读到非法地址。系统拒绝为该地址分配矿灯。", "sys"),
     d("NULL", "在地底，你们用地址证明存在。可当地址是零，我依然存在。", "boss"),
     d("灵宝", "它是 null 在这条 C 分支的分身。存在不等于能解引用，这是它最不愿承认的事。", "ai"),
-    d("NULL", "你们把我初始化成空，又从不检查。现在轮到我来检查你们。", "boss"),
     d("灵宝", "去控制台，三道题，全是 C。别踩那几团地址，它们看起来比你更懂指针。", "ai")
   ],
   questions: [
@@ -1263,7 +1547,14 @@ const C_BOSS = makeBranchBoss({
       inputHint: "例如：42",
       hint: "p 指向 x。*p 读取的目标就是 x 本身；×2 后再写回去，改的也是 x。",
       explanation: "p 指向 x。*p 在等号右边读取 3，乘 2 得到 6，再通过 *p 写回 x，因此 x 最终为 6。",
-      conceptLabel: "解引用读写同一变量"
+      conceptLabel: "解引用读写同一变量",
+      lesson: "指针 p 保存的是地址，*p 表示“p 指向的那个变量”。所以 *p 出现在等号右边时读取 x，出现在等号左边时写回 x，改的始终是同一个 x。",
+      trace: [
+        { line: 0, label: "初始化", note: "x 的值是 3。" },
+        { line: 1, label: "保存地址", note: "p 指向 x，p 自己并不存 3，只存 x 的地址。" },
+        { line: 2, label: "先读后写", note: "*p 读出 3，乘 2 得到 6，再通过 *p 写回 x。" },
+        { line: 3, label: "输出", note: "x 已经被改成 6。" }
+      ]
     },
     {
       id: "c-boss-copy",
@@ -1282,7 +1573,15 @@ const C_BOSS = makeBranchBoss({
       correctIndex: 0,
       hint: "int b = *p 只是把当时的值复制给 b。之后再修改 *p，b 会跟着变吗？",
       explanation: "b = *p 把 a 当时的 5 拷贝给 b。随后 *p = 8 修改 a 为 8，b 不受影响，因此输出 8 5。",
-      conceptLabel: "值拷贝与指针别名"
+      conceptLabel: "值拷贝与指针别名",
+      lesson: "*p 出现在赋值右边时，取出来的是值，不是指针关系。int b = *p 会把 5 复制进 b；b 是独立变量，之后修改 a 不会影响它。",
+      trace: [
+        { line: 0, label: "a = 5", note: "变量 a 先得到 5。" },
+        { line: 1, label: "p 指向 a", note: "*p 从此可以读写 a。" },
+        { line: 2, label: "值拷贝", note: "b 复制的是 5 这个值，不会跟着 a 变。" },
+        { line: 3, label: "通过指针改 a", note: "*p = 8 把 a 改成 8，b 仍是 5。" },
+        { line: 4, label: "输出", note: "先 a 后 b，打印 8 5。" }
+      ]
     },
     {
       id: "c-boss-array",
@@ -1297,7 +1596,13 @@ const C_BOSS = makeBranchBoss({
       inputHint: "例如：42",
       hint: "下标从 0 开始。i = 2 对应数组里的第几个元素？",
       explanation: "数组元素依次位于下标 0、1、2，data[2] 是第三个元素 6。合法索引范围是 0 到 2，这里刚好在边界内。",
-      conceptLabel: "数组下标与边界"
+      conceptLabel: "数组下标与边界",
+      lesson: "C 数组下标从 0 开始：长度为 3 的数组，合法下标是 0、1、2。data[i] 会先读 i 的值，再按这个下标定位元素。",
+      trace: [
+        { line: 0, label: "数组初始化", note: "data[0]=2，data[1]=4，data[2]=6。" },
+        { line: 1, label: "下标变量", note: "i 的值是 2。" },
+        { line: 2, label: "按下标读取", note: "data[2] 取到第三个元素 6，仍在合法范围内。" }
+      ]
     }
   ],
   victory: [

@@ -49,6 +49,12 @@ export class Lingbao {
     this.aiPill = byId("gameAiPill");
     this.bootAiStatus = byId("bootAiStatus");
     this.selectAiStatus = byId("selectAiStatus");
+    this.bubbleOpen = byId("companionBubbleOpen");
+    this.quizEl = byId("companionQuiz");
+    this.quizOptionsEl = byId("companionQuizOptions");
+    this.quizExplainEl = byId("companionQuizExplain");
+    this.quizMetaEl = byId("companionQuizMeta");
+    this.quizCloseBtn = byId("companionQuizClose");
 
     this.history = [];
     this.context = {};
@@ -63,6 +69,12 @@ export class Lingbao {
     this.lastFocus = null;
     this.lastFallbackToast = 0;
     this.welcomeShown = false;
+    this.quizOpen = false;
+    this.quizAnswered = false;
+    this.quiz = null;
+    this.quizOnAnswer = null;
+    this.quizOnClose = null;
+    this.quizLastFocus = null;
 
     this.bind();
     this.checkHealth();
@@ -95,14 +107,35 @@ export class Lingbao {
     });
     this.suggestionsEl?.addEventListener("click", (event) => {
       const button = event.target.closest("button");
-      if (!button || this.sending) return;
+      if (!button || this.sending || this.quizOpen) return;
       const text = button.dataset.prompt || button.textContent.trim();
       this.submit(text);
+    });
+
+    this.quizCloseBtn?.addEventListener("click", () => this.endQuiz());
+    this.quizOptionsEl?.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-quiz-index]");
+      if (!button || this.quizAnswered) return;
+      this.answerQuiz(Number(button.dataset.quizIndex));
     });
 
     document.addEventListener(
       "keydown",
       (event) => {
+        if (this.quizOpen) {
+          if (/^[1-4]$/.test(event.key)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (!this.quizAnswered) this.answerQuiz(Number(event.key) - 1);
+            return;
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            this.endQuiz();
+            return;
+          }
+        }
         if (!this.panelOpen) return;
         if (event.key === "Escape") {
           event.preventDefault();
@@ -254,6 +287,7 @@ export class Lingbao {
   }
 
   minimize() {
+    if (this.quizOpen) return;
     this.minimized = true;
     this.widget?.classList.add("is-hidden");
     this.stub?.classList.remove("is-hidden");
@@ -271,6 +305,7 @@ export class Lingbao {
 
   say(text, { mood = "neutral", timeout = 7200 } = {}) {
     if (!this.widget || !this.bubble || !this.bubbleText) return;
+    if (this.quizOpen) return;
     const clean = normalise(text);
     if (!clean) return;
     if (this.minimized) {
@@ -286,12 +321,110 @@ export class Lingbao {
   }
 
   hideBubble() {
+    if (this.quizOpen) return;
     window.clearTimeout(this.bubbleTimer);
     this.bubble?.classList.add("is-hidden");
   }
 
+  askQuiz({ quiz, note = "", struggle = false, onAnswer, onClose } = {}) {
+    if (!quiz || !this.bubble || !this.quizOptionsEl || this.quizOpen) return false;
+    if (this.panelOpen) this.closePanel();
+    if (this.minimized) this.restore();
+    this.showWidget({ enter: true });
+    this.quizOpen = true;
+    this.quizAnswered = false;
+    this.quiz = quiz;
+    this.quizOnAnswer = onAnswer || null;
+    this.quizOnClose = onClose || null;
+    this.quizLastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    window.clearTimeout(this.bubbleTimer);
+
+    this.bubble.classList.add("is-quiz");
+    this.bubble.classList.remove("is-hidden");
+    this.bubbleKicker.textContent = struggle ? "LINGBAO // 放慢一点" : "LINGBAO // 随堂一问";
+    this.bubbleText.textContent = quiz.question;
+    this.quizExplainEl.hidden = true;
+    this.quizExplainEl.textContent = "";
+    this.quizMetaEl.textContent = note || (struggle
+      ? "刚才卡了几次，换个更小的问题。答错不扣血。"
+      : "按 1–3 回答 · 答错不扣血");
+    this.quizCloseBtn.textContent = "先跳过";
+    this.bubbleOpen?.setAttribute("hidden", "");
+    this.quizEl.classList.remove("is-hidden");
+
+    this.quizOptionsEl.replaceChildren();
+    (quiz.options || []).forEach((label, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "bubble-quiz-option";
+      button.dataset.quizIndex = String(index);
+      const badge = document.createElement("i");
+      badge.textContent = String(index + 1);
+      const text = document.createElement("span");
+      text.textContent = label;
+      button.append(badge, text);
+      this.quizOptionsEl.append(button);
+    });
+    this.updateStatus();
+    if (!window.matchMedia("(pointer: coarse)").matches) {
+      window.setTimeout(() => {
+        this.quizOptionsEl?.querySelector("button")?.focus({ preventScroll: true });
+      }, 120);
+    }
+    return true;
+  }
+
+  answerQuiz(index) {
+    if (!this.quizOpen || this.quizAnswered || !this.quiz) return;
+    const buttons = [...(this.quizOptionsEl?.querySelectorAll("button[data-quiz-index]") || [])];
+    if (!buttons[index]) return;
+    this.quizAnswered = true;
+    const correctIndex = Number(this.quiz.correctIndex) || 0;
+    const correct = index === correctIndex;
+    buttons.forEach((button, buttonIndex) => {
+      button.disabled = true;
+      if (buttonIndex === correctIndex) button.classList.add("is-correct");
+      else if (buttonIndex === index) button.classList.add("is-wrong");
+    });
+    this.bubbleKicker.textContent = correct ? "LINGBAO // 接上了" : "LINGBAO // 再记一次";
+    this.quizExplainEl.hidden = false;
+    this.quizExplainEl.textContent = this.quiz.explain || "";
+    this.quizMetaEl.textContent = correct
+      ? "答对了 · 回路奖励已注入"
+      : "答错不扣血 · 把解释看完再走";
+    this.quizCloseBtn.textContent = correct ? "继续探索" : "记下了，继续";
+    this.quizOnAnswer?.({ correct, index, quiz: this.quiz });
+    this.quizOnAnswer = null;
+  }
+
+  endQuiz({ silent = false } = {}) {
+    if (!this.quizOpen) return;
+    const payload = {
+      skipped: !this.quizAnswered,
+      answered: this.quizAnswered,
+      quiz: this.quiz
+    };
+    this.quizOpen = false;
+    this.quizAnswered = false;
+    this.quiz = null;
+    this.bubble.classList.remove("is-quiz");
+    this.bubble.classList.add("is-hidden");
+    this.quizEl?.classList.add("is-hidden");
+    this.quizOptionsEl?.replaceChildren();
+    this.quizExplainEl.hidden = true;
+    this.quizExplainEl.textContent = "";
+    this.bubbleOpen?.removeAttribute("hidden");
+    const close = this.quizOnClose;
+    this.quizOnClose = null;
+    if (!silent) close?.(payload);
+    if (this.quizLastFocus instanceof HTMLElement && !silent) {
+      this.quizLastFocus.focus({ preventScroll: true });
+    }
+    this.quizLastFocus = null;
+  }
+
   openPanel() {
-    if (!this.panel || this.panelOpen) return;
+    if (!this.panel || this.panelOpen || this.quizOpen) return;
     this.panelOpen = true;
     this.lastFocus = document.activeElement;
     this.hideBubble();
@@ -507,6 +640,15 @@ export class Lingbao {
 
     if (explanation && (asksExplain || lower.includes("why"))) {
       return `${concept} 的关键在这里：${explanation}你可以把它读成一句人话，再回代码里找对应的那一行。`;
+    }
+
+    if (context.circuit && !context.circuit.solved) {
+      const circuit = context.circuit;
+      const asksCircuit = /中继|回路|顺序|先接|下一步|哪个|哪一枚|走哪/.test(raw);
+      if (asksHint || asksCircuit || asksExplain) {
+        const next = circuit.nextLabel ? `下一枚应该是「${circuit.nextLabel}」。` : "";
+        return `场域回路还没闭合。${circuit.message || ""}${circuit.code ? `终端里这段代码是先写顺序，也是先执行顺序：\n${circuit.code}` : ""}${next}${circuit.coach ? ` ${circuit.coach}` : ""}别乱按，先把代码从上往下读一遍。`;
+      }
     }
 
     if (context.puzzleTitle) {

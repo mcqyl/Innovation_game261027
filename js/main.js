@@ -35,6 +35,7 @@ const el = {
   selectScreen: byId("selectScreen"),
   mapScreen: byId("mapScreen"),
   gameScreen: byId("gameScreen"),
+  rotateGateSkip: byId("rotateGateSkip"),
 
   bootStart: byId("bootStart"),
   bootContinue: byId("bootContinue"),
@@ -84,6 +85,14 @@ const el = {
   bossHudTrack: document.querySelector("#bossHud .boss-hud-track"),
   interactHint: byId("interactHint"),
   interactText: byId("interactText"),
+  fieldConsole: byId("fieldConsole"),
+  fieldProgress: byId("fieldProgress"),
+  fieldTitle: byId("fieldTitle"),
+  fieldPrompt: byId("fieldPrompt"),
+  fieldCode: byId("fieldCode"),
+  fieldSteps: byId("fieldSteps"),
+  fieldMessage: byId("fieldMessage"),
+  fieldHintBtn: byId("fieldHintBtn"),
   heartRow: byId("heartRow"),
   rewindRow: byId("rewindRow"),
   bitCounter: byId("bitCounter"),
@@ -113,6 +122,15 @@ const el = {
   puzzleLineCount: byId("puzzleLineCount"),
   puzzlePrompt: byId("puzzlePrompt"),
   puzzleAnswerArea: byId("puzzleAnswerArea"),
+  puzzleLab: byId("puzzleLab"),
+  puzzleLabToggle: byId("puzzleLabToggle"),
+  puzzleLabBody: byId("puzzleLabBody"),
+  puzzleLesson: byId("puzzleLesson"),
+  puzzleTraceCounter: byId("puzzleTraceCounter"),
+  puzzleTraceLabel: byId("puzzleTraceLabel"),
+  puzzleTraceNote: byId("puzzleTraceNote"),
+  puzzleTraceStep: byId("puzzleTraceStep"),
+  puzzleTraceReset: byId("puzzleTraceReset"),
   puzzleFeedback: byId("puzzleFeedback"),
   puzzleHintBtn: byId("puzzleHintBtn"),
   puzzleHintText: byId("puzzleHintText"),
@@ -169,6 +187,8 @@ const state = {
   phase: "idle",
   hud: null,
   runStats: null,
+  circuit: null,
+  quickQuizOpen: false,
   dialogue: null,
   puzzle: null,
   pauseOpen: false,
@@ -549,6 +569,10 @@ function puzzleAnswerText(puzzle) {
   if (puzzle.type === "lines") {
     return `第 ${Number(puzzle.answerLine) + 1} 行`;
   }
+  if (puzzle.type === "order") {
+    const byId = new Map((puzzle.items || []).map((item) => [item.id, item.label]));
+    return (puzzle.solution || []).map((id) => byId.get(id) || id).join(" → ");
+  }
   return "";
 }
 
@@ -594,6 +618,23 @@ function getCompanionContext() {
     context.cores = hud.cores ?? 0;
     context.totalCores = hud.totalCores ?? 0;
     context.hp = hud.hp ?? 0;
+    const circuitState = state.engine?.getCircuitState();
+    if (circuitState && !circuitState.solved) {
+      const nextPad = state.level.fieldCircuit?.pads?.find((pad) => pad.id === circuitState.nextPadId);
+      context.objective = circuitState.objective || context.objective;
+      context.circuit = {
+        title: circuitState.title,
+        objective: circuitState.objective,
+        prompt: circuitState.prompt,
+        code: circuitState.code,
+        progress: circuitState.progress,
+        total: circuitState.total,
+        solved: circuitState.solved,
+        message: circuitState.message,
+        nextLabel: nextPad?.label || "",
+        coach: nextPad?.coach || ""
+      };
+    }
     if (state.level.bossFight) {
       const bossState = state.engine?.getBossState();
       context.boss = `${state.level.bossFight.name} · 第 ${Math.min((bossState?.solved || 0) + 1, bossState?.maxHp || 3)} 层`;
@@ -1095,6 +1136,8 @@ function refreshEnginePause() {
       state.completeOpen ||
       state.endingOpen ||
       state.knowledgeOpen ||
+      state.quickQuizOpen ||
+      lingbao?.quizOpen ||
       lingbao?.panelOpen
   );
   if (blocked) {
@@ -1138,6 +1181,7 @@ function resetGameChrome() {
   el.bitCounter.textContent = "000";
   el.heartRow.replaceChildren();
   el.rewindRow.replaceChildren();
+  resetCircuitUi();
   clearSceneTimer();
 }
 
@@ -1162,6 +1206,8 @@ function renderGameChrome(level, campaign) {
   } else {
     el.bossHudTrack?.replaceChildren();
   }
+  if (level.fieldCircuit && !level.bossFight) updateCircuitUi(null);
+  else resetCircuitUi();
   el.interactHint.classList.add("is-hidden");
   el.bitCounter.textContent = "000";
 }
@@ -1208,18 +1254,153 @@ function updateHud(hud) {
       });
     }
   } else {
-    const total = Math.max(0, Number(hud.totalCores) || 0);
-    el.questCores.textContent = `源核 ${hud.cores || 0}/${total}`;
-    const ratio = hud.terminalSolved ? 1 : total ? (hud.cores || 0) / total : 0;
-    el.questBar.style.width = `${Math.round(ratio * 100)}%`;
-    el.questTitle.textContent = state.level?.objective || "修复当前裂隙";
-    if (hud.terminalSolved) {
+    const circuit = hud.circuit;
+    if (circuit && !circuit.solved) {
+      const ratio = circuit.total ? circuit.progress / circuit.total : 0;
+      el.questCores.textContent = `回路 ${circuit.progress}/${circuit.total}`;
+      el.questBar.style.width = `${Math.round(ratio * 60)}%`;
+      el.questTitle.textContent = "接通场域回路";
+      el.questDetail.textContent = state.level?.fieldCircuit?.objective
+        || "按代码的执行顺序接通场景里的中继。";
+    } else if (!hud.terminalSolved) {
+      el.questCores.textContent = "终端待修复";
+      el.questBar.style.width = "70%";
+      el.questTitle.textContent = state.level?.objective || "修复当前裂隙";
+      el.questDetail.textContent = circuit?.solved
+        ? "回路已闭合。终端恢复供电，接入它完成最后判定。"
+        : state.level?.mission || "找到终端并完成修复。";
+    } else {
+      el.questCores.textContent = "编译门解锁";
+      el.questBar.style.width = "100%";
+      el.questTitle.textContent = "裂隙已修复";
       el.questDetail.textContent = "终端已修复，编译门解锁。去把出口撞开。";
-    } else if (state.level) {
-      el.questDetail.textContent = state.level.mission;
     }
     el.bossHud.hidden = true;
   }
+  updateCompanionContext();
+}
+
+function updateCircuitUi(circuit = state.circuit) {
+  const level = state.level;
+  if (!level?.fieldCircuit || level.bossFight) {
+    el.fieldConsole.classList.add("is-hidden");
+    return;
+  }
+  el.fieldConsole.classList.remove("is-hidden");
+  el.fieldConsole.classList.toggle("is-solved", Boolean(circuit?.solved));
+  const progress = Math.max(0, Number(circuit?.progress) || 0);
+  const total = Math.max(1, Number(circuit?.total) || level.fieldCircuit.solution.length);
+  el.fieldProgress.textContent = `${progress} / ${total}`;
+  el.fieldTitle.textContent = circuit?.title || level.fieldCircuit.title;
+  el.fieldPrompt.textContent = circuit?.prompt || level.fieldCircuit.prompt;
+  const codeNode = el.fieldCode.querySelector("code") || el.fieldCode;
+  codeNode.textContent = circuit?.code || level.fieldCircuit.code;
+  el.fieldMessage.textContent = circuit?.message
+    || (circuit?.solved ? "回路闭合。去接入终端。" : "靠近中继，按 E 接通。");
+  el.fieldHintBtn.disabled = Boolean(circuit?.solved);
+  el.fieldHintBtn.textContent = circuit?.solved ? "已闭合" : "灵宝指路";
+
+  el.fieldSteps.replaceChildren();
+  const steps = circuit?.steps || level.fieldCircuit.solution.map((id, index) => {
+    const pad = level.fieldCircuit.pads.find((item) => item.id === id);
+    return { index, label: pad?.label || `中继 ${index + 1}`, active: false };
+  });
+  steps.forEach((step, index) => {
+    const chip = document.createElement("span");
+    chip.className = "field-step";
+    if (step.active) chip.classList.add("is-active");
+    else if (index === progress) chip.classList.add("is-next");
+    const number = document.createElement("i");
+    number.textContent = String(index + 1).padStart(2, "0");
+    chip.append(number, document.createTextNode(step.active ? step.label : index === progress ? "下一个" : "未接通"));
+    el.fieldSteps.append(chip);
+  });
+}
+
+function resetCircuitUi() {
+  el.fieldConsole.classList.add("is-hidden");
+  el.fieldConsole.classList.remove("is-solved");
+  el.fieldSteps.replaceChildren();
+  el.fieldMessage.textContent = "";
+  el.fieldHintBtn.disabled = false;
+  el.fieldHintBtn.textContent = "灵宝指路";
+}
+
+function handleCircuit(payload) {
+  if (!payload) return;
+  state.circuit = payload;
+  updateCircuitUi(payload);
+  if (payload.type === "wrong") {
+    state.companionMood = "serious";
+    state.recent = payload.message || "回路顺序不对。";
+    const expected = payload.expected;
+    if (!state.dialogue && !state.puzzle && !state.quickQuizOpen) {
+      lingbao?.say(
+        expected
+          ? `顺序不对。${payload.pad?.why || ""} 先把「${expected.label}」接通。${expected.coach || ""}`
+          : payload.message || "顺序不对，回到代码第一行重新读。",
+        { mood: "serious", timeout: 7800 }
+      );
+    }
+  } else if (payload.type === "progress" || payload.type === "repeat") {
+    state.recent = payload.message || state.recent;
+  }
+  updateCompanionContext();
+}
+
+function chooseQuickQuiz(circuit, hp) {
+  const base = state.level?.quickQuiz;
+  if (!base) return null;
+  const struggle = (circuit?.mistakes || 0) >= 2 || (Number.isFinite(hp) ? hp : 3) <= 1;
+  if (struggle && base.easy) {
+    return { ...base.easy, id: base.id, explain: base.easy.explain || base.explain };
+  }
+  return base;
+}
+
+function handleCompanionCue(payload) {
+  if (!payload || payload.type !== "quiz" || state.quickQuizOpen) return;
+  if (state.phase !== "playing" || state.dialogue || state.puzzle || state.pauseOpen || state.knowledgeOpen) return;
+  const quiz = chooseQuickQuiz(payload.circuit, payload.hp);
+  if (!quiz) return;
+  const struggle = (payload.circuit?.mistakes || 0) >= 2 || (payload.hp ?? 3) <= 1;
+  const opened = lingbao?.askQuiz({
+    quiz,
+    struggle,
+    note: struggle ? "刚才中继接错了几次，换一个最小的问法。答错不扣血。" : undefined,
+    onAnswer: ({ correct }) => {
+      if (correct) {
+        const reward = state.engine?.rewardQuickQuiz();
+        state.recent = "随堂一问答对了，回路认知奖励到账。";
+        toast(`INSIGHT + 回路理解正确 · 墨水 +${reward?.inkGained || 0} · 碎片 +${reward?.bitsGained || 0}`, "success");
+        audio.play("success");
+      } else {
+        state.companionMood = "worried";
+        state.recent = "随堂一问答错了，灵宝把解释留在了气泡里。";
+        toast("答错不扣血。把解释读完后继续。", "warn");
+      }
+      updateCompanionContext();
+    },
+    onClose: () => {
+      state.quickQuizOpen = false;
+      refreshEnginePause();
+      updateCompanionContext();
+    }
+  });
+  if (!opened) return;
+  state.quickQuizOpen = true;
+  state.engine?.pause();
+  state.companionMood = "serious";
+  updateCompanionContext();
+}
+
+function handleCircuitSolved({ circuit } = {}) {
+  const level = state.level;
+  if (!level) return;
+  const rewardId = circuit?.rewardId || level.fieldCircuit?.rewardId || level.puzzle?.rewardId;
+  if (rewardId) addKnowledge(rewardId);
+  state.recent = "场域回路闭合，终端恢复供电。";
+  updateCircuitUi(circuit || state.circuit);
   updateCompanionContext();
 }
 
@@ -1237,6 +1418,8 @@ function teardownGame() {
   state.level = null;
   state.hud = null;
   state.runStats = null;
+  state.circuit = null;
+  state.quickQuizOpen = false;
   state.phase = "idle";
   state.dialogue = null;
   state.puzzle = null;
@@ -1255,7 +1438,11 @@ function teardownGame() {
   el.bossHud.hidden = true;
   el.interactHint.classList.add("is-hidden");
   resetGameChrome();
+  resetCircuitUi();
+  setPuzzleLabOpen(false);
+  resetPuzzleTrace();
 
+  if (lingbao?.quizOpen) lingbao.endQuiz({ silent: true });
   if (lingbao?.panelOpen) lingbao.closePanel();
   lingbao?.hideWidget();
   lingbao?.hideBubble();
@@ -1310,6 +1497,9 @@ function startLevel(levelId) {
         },
         onDialogue: handleNpcDialogue,
         onPuzzle: (payload) => openPuzzle(payload),
+        onCircuit: handleCircuit,
+        onCompanionCue: handleCompanionCue,
+        onCircuitSolved: handleCircuitSolved,
         onDoor: () => handleDoor(level),
         onCheckpoint: ({ x }) => {
           state.recent = `检查点已同步（x=${Math.round(x)}）。`;
@@ -1359,6 +1549,7 @@ function startLevel(levelId) {
       refreshEnginePause();
       window.setTimeout(() => {
         if (state.screen !== "game" || !state.engine || state.engine.finished) return;
+        if (level.fieldCircuit && !level.bossFight) return;
         const bubble = level.bossFight
           ? "先靠近主分支控制台，按 E 接入。答对一层，壳就碎一层。"
           : `目标：${level.objective}。看到终端就按 E，别和它先讲道理。`;
@@ -1402,6 +1593,188 @@ function updateBossShells() {
   el.puzzleBossLabel.textContent = `BOSS // SHELL ${Math.min(boss.solved + 1, boss.maxHp)}/${boss.maxHp}`;
 }
 
+function setPuzzleLabOpen(open) {
+  const allowed = Boolean(state.puzzle?.current?.lesson || state.puzzle?.current?.trace?.length);
+  const next = Boolean(open && allowed);
+  el.puzzleLab.classList.toggle("is-open", next);
+  el.puzzleLab.classList.toggle("is-hidden", !allowed);
+  el.puzzleLabToggle.setAttribute("aria-expanded", String(next));
+  el.puzzleLabBody.hidden = !next;
+}
+
+function clearPuzzleTraceHighlight() {
+  el.puzzleCode.querySelectorAll(".is-trace").forEach((node) => node.classList.remove("is-trace"));
+  el.puzzleLines.querySelectorAll(".is-trace").forEach((node) => node.classList.remove("is-trace"));
+}
+
+function renderPuzzleTrace() {
+  const puzzle = state.puzzle;
+  const steps = puzzle?.current?.trace || [];
+  const index = Number.isInteger(puzzle?.traceIndex) ? puzzle.traceIndex : -1;
+  const shown = Math.max(0, index + 1);
+  el.puzzleTraceCounter.textContent = `${shown} / ${steps.length}`;
+  if (!steps.length) {
+    el.puzzleTraceLabel.textContent = "没有可追踪步骤";
+    el.puzzleTraceNote.textContent = "先读一遍代码，再回到答案。";
+    el.puzzleTraceStep.disabled = true;
+    return;
+  }
+  el.puzzleTraceStep.disabled = false;
+  clearPuzzleTraceHighlight();
+  if (index < 0) {
+    el.puzzleTraceLabel.textContent = "准备执行";
+    el.puzzleTraceNote.textContent = "点“下一步”，让代码在眼前跑一遍。";
+    el.puzzleTraceStep.textContent = "下一步执行 →";
+    return;
+  }
+  const step = steps[index];
+  el.puzzleTraceLabel.textContent = step.label || `第 ${index + 1} 步`;
+  el.puzzleTraceNote.textContent = step.note || "";
+  el.puzzleTraceStep.textContent = index >= steps.length - 1 ? "重新执行 ↺" : "下一步执行 →";
+  const target = puzzle.current.type === "lines"
+    ? el.puzzleLines.querySelector(`.code-line[data-line="${step.line}"]`)
+    : el.puzzleCode.querySelector(`.code-row[data-line="${step.line}"]`);
+  if (target) {
+    target.classList.add("is-trace");
+    const scroller = target.closest(".code-scroll");
+    if (scroller) {
+      const targetTop = target.offsetTop - scroller.clientHeight / 2 + target.offsetHeight / 2;
+      scroller.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+    }
+  }
+}
+
+function stepPuzzleTrace() {
+  const puzzle = state.puzzle;
+  if (!puzzle) return;
+  const steps = puzzle.current?.trace || [];
+  if (!steps.length) return;
+  const index = Number.isInteger(puzzle.traceIndex) ? puzzle.traceIndex : -1;
+  if (index >= steps.length - 1) {
+    puzzle.traceIndex = -1;
+  } else {
+    puzzle.traceIndex = index + 1;
+  }
+  renderPuzzleTrace();
+  audio.play("ui");
+}
+
+function resetPuzzleTrace() {
+  if (state.puzzle) state.puzzle.traceIndex = -1;
+  clearPuzzleTraceHighlight();
+  el.puzzleTraceCounter.textContent = `0 / ${state.puzzle?.current?.trace?.length || 0}`;
+  el.puzzleTraceLabel.textContent = "准备执行";
+  el.puzzleTraceNote.textContent = "点“下一步”，让代码在眼前跑一遍。";
+  el.puzzleTraceStep.textContent = "下一步执行 →";
+  el.puzzleTraceStep.disabled = false;
+}
+
+function renderPuzzleCodeRows(code) {
+  const codeNode = el.puzzleCode.querySelector("code") || el.puzzleCode;
+  codeNode.replaceChildren();
+  String(code || "").split("\n").forEach((text, index) => {
+    const row = document.createElement("span");
+    row.className = "code-row";
+    row.dataset.line = String(index);
+    row.textContent = text || " ";
+    codeNode.append(row);
+  });
+}
+
+function renderOrderAnswer() {
+  const puzzle = state.puzzle;
+  const current = puzzle?.current;
+  if (!puzzle || current?.type !== "order") return;
+  const items = current.items || [];
+  if (!Array.isArray(puzzle.order)) puzzle.order = [];
+  const pool = items.filter((item) => !puzzle.order.includes(item.id));
+
+  const wrap = document.createElement("div");
+  wrap.className = "answer-order";
+  const kicker = document.createElement("div");
+  kicker.className = "order-kicker";
+  const label = document.createElement("span");
+  label.textContent = "EXECUTION ORDER";
+  const count = document.createElement("b");
+  count.textContent = `${puzzle.order.length} / ${items.length}`;
+  kicker.append(label, count);
+
+  const sequence = document.createElement("div");
+  sequence.className = "order-sequence";
+  if (!puzzle.order.length) {
+    const placeholder = document.createElement("span");
+    placeholder.className = "order-placeholder";
+    placeholder.textContent = "从下面的语句里挑第一步";
+    sequence.append(placeholder);
+  }
+  puzzle.order.forEach((id, index) => {
+    const item = items.find((entry) => entry.id === id);
+    if (!item) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "order-placed";
+    button.dataset.orderIndex = String(index);
+    const number = document.createElement("i");
+    number.textContent = pad2(index + 1);
+    button.append(number, document.createTextNode(item.label));
+    button.title = "点击移出序列";
+    button.addEventListener("click", () => {
+      if (state.puzzle?.solved) return;
+      puzzle.order.splice(index, 1);
+      audio.play("ui");
+      renderOrderAnswer();
+      updatePuzzleSubmitAvailability();
+    });
+    sequence.append(button);
+  });
+
+  const poolWrap = document.createElement("div");
+  poolWrap.className = "order-pool";
+  pool.forEach((item) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "order-chip";
+    button.textContent = item.label;
+    button.addEventListener("click", () => {
+      if (state.puzzle?.solved) return;
+      if (puzzle.order.length >= items.length) return;
+      puzzle.order.push(item.id);
+      audio.play("ui");
+      renderOrderAnswer();
+      updatePuzzleSubmitAvailability();
+    });
+    poolWrap.append(button);
+  });
+
+  const reset = document.createElement("button");
+  reset.type = "button";
+  reset.className = "text-btn order-reset";
+  reset.textContent = "清空重排";
+  reset.addEventListener("click", () => {
+    if (state.puzzle?.solved) return;
+    puzzle.order = [];
+    audio.play("ui");
+    renderOrderAnswer();
+    updatePuzzleSubmitAvailability();
+  });
+
+  wrap.append(kicker, sequence, poolWrap, reset);
+  el.puzzleAnswerArea.replaceChildren(wrap);
+}
+
+function renderPuzzleLab(puzzle) {
+  const hasLab = Boolean(puzzle?.lesson || puzzle?.trace?.length);
+  if (!hasLab) {
+    setPuzzleLabOpen(false);
+    el.puzzleLab.classList.add("is-hidden");
+    return;
+  }
+  el.puzzleLesson.textContent = puzzle.lesson || "先读代码，再让执行过程走一遍。";
+  if (state.puzzle) state.puzzle.traceIndex = -1;
+  setPuzzleLabOpen(true);
+  renderPuzzleTrace();
+}
+
 function loadPuzzleQuestion(payload) {
   const { source, puzzle, questionIndex = 0 } = payload;
   if (!puzzle) return;
@@ -1433,6 +1806,8 @@ function loadPuzzleQuestion(payload) {
   puzzleState.lockClose = false;
   puzzleState.selectedIndex = null;
   puzzleState.selectedLine = null;
+  puzzleState.order = [];
+  puzzleState.traceIndex = -1;
   puzzleState.value = "";
 
   el.puzzleBranch.textContent = campaign.label.slice(0, 1);
@@ -1465,8 +1840,7 @@ function loadPuzzleQuestion(payload) {
   const linesMode = puzzle.type === "lines";
   el.puzzleCode.hidden = linesMode;
   el.puzzleLines.classList.toggle("is-hidden", !linesMode);
-  const codeNode = el.puzzleCode.querySelector("code") || el.puzzleCode;
-  codeNode.textContent = puzzle.code || "";
+  renderPuzzleCodeRows(puzzle.code || "");
   el.puzzleLines.replaceChildren();
   el.puzzleAnswerArea.replaceChildren();
 
@@ -1505,6 +1879,8 @@ function loadPuzzleQuestion(payload) {
       button.addEventListener("click", () => selectPuzzleOption(index));
       el.puzzleAnswerArea.append(button);
     });
+  } else if (puzzle.type === "order") {
+    renderOrderAnswer();
   } else {
     const wrap = document.createElement("div");
     wrap.className = "answer-fill";
@@ -1535,6 +1911,7 @@ function loadPuzzleQuestion(payload) {
 
   updateBossShells();
   updatePuzzleSubmitAvailability();
+  renderPuzzleLab(puzzle);
   updateCompanionContext();
 }
 
@@ -1578,6 +1955,10 @@ function updatePuzzleSubmitAvailability() {
   if (puzzle.current?.type === "choice") ready = Number.isInteger(puzzle.selectedIndex);
   else if (puzzle.current?.type === "fill") ready = Boolean(String(puzzle.value || "").trim());
   else if (puzzle.current?.type === "lines") ready = Number.isInteger(puzzle.selectedLine);
+  else if (puzzle.current?.type === "order") {
+    ready = Array.isArray(puzzle.order)
+      && puzzle.order.length === (puzzle.current.items || []).length;
+  }
   el.puzzleSubmit.hidden = !ready;
   el.puzzleSubmit.disabled = !ready;
 }
@@ -1597,6 +1978,11 @@ function normaliseFill(value) {
 function puzzleIsCorrect(puzzle, answerState) {
   if (puzzle.type === "choice") return answerState.selectedIndex === puzzle.correctIndex;
   if (puzzle.type === "lines") return answerState.selectedLine === puzzle.answerLine;
+  if (puzzle.type === "order") {
+    const expected = puzzle.solution || [];
+    return expected.length === answerState.order.length
+      && expected.every((id, index) => id === answerState.order[index]);
+  }
   const value = normaliseFill(answerState.value);
   return (puzzle.answers || []).some((answer) => normaliseFill(answer) === value);
 }
@@ -1615,6 +2001,14 @@ function markPuzzleWrong() {
     line?.classList.add("is-wrong");
     line?.classList.remove("is-selected");
     puzzle.selectedLine = null;
+  } else if (type === "order") {
+    const sequence = el.puzzleAnswerArea.querySelector(".order-sequence");
+    sequence?.classList.add("is-wrong");
+    sequence?.querySelectorAll(".order-placed").forEach((node) => node.classList.add("is-wrong"));
+    window.setTimeout(() => {
+      sequence?.classList.remove("is-wrong");
+      sequence?.querySelectorAll(".order-placed").forEach((node) => node.classList.remove("is-wrong"));
+    }, 900);
   }
   updatePuzzleSubmitAvailability();
 }
@@ -1631,6 +2025,7 @@ function submitPuzzle() {
   const answer = {
     selectedIndex: puzzle.selectedIndex,
     selectedLine: puzzle.selectedLine,
+    order: Array.isArray(puzzle.order) ? [...puzzle.order] : [],
     value: puzzle.value
   };
   if (!puzzleIsCorrect(puzzle.current, answer)) {
@@ -1639,13 +2034,16 @@ function submitPuzzle() {
     audio.play("locked");
     markPuzzleWrong();
     const prompt = puzzle.attempts >= 2
-      ? "还是没对上。可以点「让灵宝提示」，或者把执行过程逐行写下来。"
+      ? "还是没对上。灵宝把执行过程摊开了，点「下一步执行」逐行走一遍，再改答案。"
       : puzzle.current.type === "lines"
         ? "这条路径不对。沿代码逐行看：哪一行先越界、解引用或让流程提前结束？"
         : puzzle.current.type === "fill"
           ? "先别猜。把表达式拆开，按执行顺序算出真正的值。"
-          : "还不是它。再看看变量真正指向的对象或下标，别急着换答案。";
+          : puzzle.current.type === "order"
+            ? "先后顺序还不对。想一想：谁先创建对象，谁才拿到参数，字段又是什么时候被写入？"
+            : "还不是它。再看看变量真正指向的对象或下标，别急着换答案。";
     showPuzzleFeedback("error", `COMPILE FAILED // 尝试 ${puzzle.attempts}`, prompt);
+    if (puzzle.attempts >= 2) setPuzzleLabOpen(true);
     if (puzzle.current.type === "fill") {
       const input = el.puzzleAnswerArea.querySelector("input");
       input?.focus();
@@ -1669,6 +2067,15 @@ function submitPuzzle() {
     line?.classList.add("is-correct");
     line?.classList.remove("is-wrong", "is-selected");
     el.puzzleLines.querySelectorAll(".code-line").forEach((node) => {
+      node.disabled = true;
+    });
+  } else if (puzzle.current.type === "order") {
+    el.puzzleAnswerArea.querySelectorAll(".order-placed").forEach((node) => {
+      node.classList.add("is-correct");
+      node.classList.remove("is-wrong");
+      node.disabled = true;
+    });
+    el.puzzleAnswerArea.querySelectorAll(".order-chip, .order-reset").forEach((node) => {
       node.disabled = true;
     });
   } else {
@@ -2016,7 +2423,7 @@ function renderKnowledge() {
 }
 
 function openKnowledge() {
-  if (state.knowledgeOpen) return;
+  if (state.knowledgeOpen || state.quickQuizOpen || lingbao?.quizOpen) return;
   state.lastKnowledgeFocus = document.activeElement;
   state.knowledgeOpen = true;
   lingbao?.hideBubble();
@@ -2048,6 +2455,7 @@ function closeKnowledge() {
 
 function openPause() {
   if (state.screen !== "game" || !state.engine || state.engine.finished) return;
+  if (state.quickQuizOpen || lingbao?.quizOpen) return;
   if (state.dialogue || state.puzzle || state.completeOpen || state.endingOpen || state.knowledgeOpen) return;
   state.pauseOpen = true;
   state.engine.pause();
@@ -2095,6 +2503,9 @@ function completeReplay() {
    ------------------------------------------------------------ */
 
 function bindStaticEvents() {
+  el.rotateGateSkip?.addEventListener("click", () => {
+    document.body.classList.add("portrait-ok");
+  });
   el.bootStart.addEventListener("click", () => {
     audio.unlock();
     audio.play("ui");
@@ -2172,7 +2583,7 @@ function bindStaticEvents() {
   el.selectKnowledgeTop.addEventListener("click", openKnowledge);
   el.selectKnowledgeBtn.addEventListener("click", openKnowledge);
   el.gameKnowledgeBtn.addEventListener("click", () => {
-    if (state.dialogue || state.puzzle) return;
+    if (state.dialogue || state.puzzle || state.quickQuizOpen || lingbao?.quizOpen) return;
     openKnowledge();
   });
   el.pauseKnowledge.addEventListener("click", openKnowledge);
@@ -2191,6 +2602,18 @@ function bindStaticEvents() {
   el.puzzleExit.addEventListener("click", () => closePuzzle(false));
   el.puzzleHintBtn.addEventListener("click", revealPuzzleHint);
   el.puzzleSubmit.addEventListener("click", submitPuzzle);
+  el.puzzleLabToggle.addEventListener("click", () => {
+    setPuzzleLabOpen(el.puzzleLabToggle.getAttribute("aria-expanded") !== "true");
+    audio.play("ui");
+  });
+  el.puzzleTraceStep.addEventListener("click", stepPuzzleTrace);
+  el.puzzleTraceReset.addEventListener("click", resetPuzzleTrace);
+  el.fieldHintBtn.addEventListener("click", () => {
+    if (state.engine && state.level?.fieldCircuit) {
+      state.engine.revealCircuitHint();
+      audio.play("ui");
+    }
+  });
 
   el.pauseResume.addEventListener("click", closePause);
   el.pauseRestart.addEventListener("click", () => {
@@ -2269,7 +2692,7 @@ function isTextTarget(target) {
 }
 
 function handleGlobalKeys(event) {
-  if (lingbao?.panelOpen) return;
+  if (lingbao?.panelOpen || lingbao?.quizOpen || state.quickQuizOpen) return;
 
   if (event.code === "Escape") {
     if (state.knowledgeOpen) {

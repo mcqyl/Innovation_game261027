@@ -79,6 +79,21 @@ export class GameEngine {
     this.nearNpc = new Set();
     this.visitedNpcs = new Set();
     this.hinted = new Set();
+    this.circuit = level.fieldCircuit
+      ? {
+          ...level.fieldCircuit,
+          pads: level.fieldCircuit.pads.map((pad) => ({ ...pad, activated: false })),
+          progress: 0,
+          solved: false,
+          mistakes: 0,
+          hintPadId: "",
+          hintUntil: 0,
+          lastMessage: ""
+        }
+      : null;
+    this.quickQuizDone = false;
+    this.circuitIntroDone = false;
+    this.padCoachReadyAt = 0;
     this.shake = 0;
     this.particles = [];
     this.popups = [];
@@ -169,6 +184,48 @@ export class GameEngine {
     };
   }
 
+  getCircuitState() {
+    if (!this.circuit) return null;
+    const circuit = this.circuit;
+    const total = circuit.solution.length;
+    const nextPad = circuit.pads.find((pad) => pad.id === circuit.solution[circuit.progress]) || null;
+    return {
+      id: circuit.id,
+      title: circuit.title,
+      objective: circuit.objective,
+      prompt: circuit.prompt,
+      code: circuit.code,
+      language: circuit.language,
+      progress: circuit.progress,
+      total,
+      solved: circuit.solved,
+      mistakes: circuit.mistakes,
+      message: circuit.lastMessage,
+      hintedPadId: circuit.hintUntil > this.time ? circuit.hintPadId : "",
+      nextPadId: nextPad ? nextPad.id : "",
+      nextLabel: nextPad ? nextPad.label : "",
+      nextCoach: nextPad ? nextPad.coach || "" : "",
+      steps: circuit.solution.map((id, index) => {
+        const pad = circuit.pads.find((item) => item.id === id);
+        return {
+          index,
+          label: pad?.activated ? pad.label : `中继 ${index + 1}`,
+          detail: pad?.activated ? pad.detail || "" : "",
+          active: Boolean(pad?.activated)
+        };
+      })
+    };
+  }
+
+  emitCircuit(extra = {}, force = false) {
+    if (!this.circuit) return;
+    const payload = { ...this.getCircuitState(), ...extra };
+    const key = `${payload.progress}:${payload.solved}:${payload.mistakes}:${payload.hintedPadId}:${payload.message}`;
+    if (!force && key === this.circuitKey) return;
+    this.circuitKey = key;
+    this.callbacks.onCircuit?.(payload);
+  }
+
   start() {
     if (this.started) return;
     this.started = true;
@@ -180,6 +237,7 @@ export class GameEngine {
     this.bindTouchControls();
     this.emitHud(true);
     this.updateInteractHint();
+    this.emitCircuit({}, true);
     this.last = performance.now();
     this.raf = requestAnimationFrame(this.boundFrame);
   }
@@ -310,6 +368,7 @@ export class GameEngine {
     this.updateInteractHint();
     this.checkCheckpoint();
     this.updateNpcsProximity();
+    this.checkCompanionCues();
 
     const move = (this.keys.right ? 1 : 0) - (this.keys.left ? 1 : 0);
     if (move !== 0) {
@@ -524,6 +583,136 @@ export class GameEngine {
     }
   }
 
+  checkCompanionCues() {
+    const px = this.player.x + this.player.w / 2;
+    if (this.circuit && !this.circuitIntroDone && !this.circuit.solved) {
+      const first = this.circuit.pads.find((pad) => pad.id === this.circuit.solution[0]);
+      if (first && px > first.x - 250) {
+        this.circuitIntroDone = true;
+        this.emitHint(
+          this.circuit.intro || "场域回路断开了。靠近中继按 E，把代码的执行顺序重新接通。",
+          "serious",
+          "circuit-intro"
+        );
+      }
+    }
+    if (this.level.quickQuiz && !this.quickQuizDone && !this.terminalSolved && px > this.level.quickQuiz.x) {
+      this.quickQuizDone = true;
+      this.callbacks.onCompanionCue?.({
+        type: "quiz",
+        quiz: this.level.quickQuiz,
+        circuit: this.getCircuitState(),
+        hp: this.hp,
+        levelTitle: this.level.title
+      });
+    }
+  }
+
+  activateCircuitPad(pad) {
+    const circuit = this.circuit;
+    if (!circuit || circuit.solved || !pad) return;
+    if (pad.activated) {
+      circuit.lastMessage = `已经接通：${pad.label}。${pad.detail || ""}`;
+      this.audio?.play("ui");
+      this.emitCircuit({ type: "repeat", pad });
+      return;
+    }
+    const expectedId = circuit.solution[circuit.progress];
+    const expected = circuit.pads.find((item) => item.id === expectedId);
+    if (pad.id === expectedId) {
+      pad.activated = true;
+      circuit.progress += 1;
+      circuit.lastMessage = `中继 ${circuit.progress}/${circuit.solution.length} 接通 · ${pad.label}`;
+      this.audio?.play("core");
+      this.shake = Math.max(this.shake, 1.6);
+      this.spawnBurst(pad.x, pad.y - 34, [this.palette.accent, "#ffffff", this.palette.accent2], 20, 190);
+      this.spawnRing(pad.x, pad.y - 34, this.palette.accent);
+      this.popup(pad.x, pad.y - 112, `RELAY ${circuit.progress}/${circuit.solution.length}`, this.palette.accent);
+      if (circuit.progress >= circuit.solution.length) {
+        this.solveCircuit();
+      } else {
+        this.emitHud(true);
+        this.emitCircuit({ type: "progress", pad });
+      }
+      return;
+    }
+
+    circuit.mistakes += 1;
+    const laterIndex = circuit.solution.indexOf(pad.id);
+    const advice = laterIndex >= 0
+      ? `它要排在第 ${laterIndex + 1} 步，前面还有动作没执行。`
+      : pad.why || "这段代码不会走到这一枚中继。";
+    circuit.lastMessage = `顺序不对：${pad.label}。${advice}`;
+    this.audio?.play("locked");
+    this.shake = Math.max(this.shake, 3.2);
+    this.spawnBurst(pad.x, pad.y - 34, [this.palette.danger, "#ffffff"], 12, 130);
+    this.popup(pad.x, pad.y - 100, "ORDER ×", this.palette.danger);
+    this.emitCircuit({
+      type: "wrong",
+      pad,
+      expected: expected ? { id: expected.id, label: expected.label, coach: expected.coach || "" } : null
+    });
+  }
+
+  solveCircuit() {
+    const circuit = this.circuit;
+    if (!circuit || circuit.solved) return;
+    circuit.solved = true;
+    circuit.hintPadId = "";
+    circuit.lastMessage = "回路闭合，终端已恢复供电。";
+    this.audio?.play("success");
+    this.shake = Math.max(this.shake, 4);
+    for (const pad of circuit.pads) {
+      if (!pad.activated) continue;
+      this.spawnBurst(pad.x, pad.y - 34, [this.palette.accent, "#ffffff", this.palette.accent2], 22, 210);
+      this.spawnRing(pad.x, pad.y - 34, this.palette.accent);
+    }
+    this.popup(circuit.pads.find((pad) => pad.activated)?.x || this.player.x, 180, "CIRCUIT CLOSED", this.palette.accent);
+    this.ink = Math.min(MAX_INK, this.ink + 1);
+    this.emitHud(true);
+    this.emitCircuit({ type: "solved" }, true);
+    this.emitHint(
+      circuit.done || "场域回路闭合。终端恢复供电，去接入它，把刚才的执行顺序变成答案。",
+      "happy",
+      "circuit-solved"
+    );
+    this.callbacks.onCircuitSolved?.({ circuit: this.getCircuitState() });
+  }
+
+  revealCircuitHint() {
+    const circuit = this.circuit;
+    if (!circuit || circuit.solved) return;
+    if (circuit.hintUntil > this.time) return;
+    const next = circuit.pads.find((pad) => pad.id === circuit.solution[circuit.progress]);
+    if (!next) return;
+    circuit.hintPadId = next.id;
+    circuit.hintUntil = this.time + 10;
+    circuit.lastMessage = `灵宝标记：下一枚是「${next.label}」。`;
+    this.registerHint();
+    this.audio?.play("terminal");
+    this.spawnRing(next.x, next.y - 30, this.palette.accent2);
+    this.popup(next.x, next.y - 128, "NEXT RELAY", this.palette.accent2);
+    this.emitCircuit({ type: "hint", pad: next }, true);
+    this.emitHint(
+      `看那道竖光。下一枚中继是「${next.label}」。${next.coach || ""}`,
+      "serious",
+      `circuit-hint-${circuit.progress}`
+    );
+  }
+
+  rewardQuickQuiz() {
+    const inkBefore = this.ink;
+    this.ink = Math.min(MAX_INK, this.ink + 1);
+    const bitsGain = inkBefore < MAX_INK ? 3 : 6;
+    this.bits += bitsGain;
+    this.audio?.play("core");
+    this.spawnRing(this.player.x + this.player.w / 2, this.player.y + this.player.h / 2, this.palette.accent2);
+    this.spawnBurst(this.player.x + this.player.w / 2, this.player.y + 10, [this.palette.accent, "#ffffff"], 16, 160);
+    this.popup(this.player.x + this.player.w / 2, this.player.y - 18, "INSIGHT +", this.palette.accent);
+    this.emitHud(true);
+    return { inkGained: this.ink - inkBefore, bitsGained: bitsGain };
+  }
+
   checkCheckpoint() {
     if (this.checkpoint.active) return;
     const cx = this.player.x + this.player.w / 2;
@@ -557,6 +746,28 @@ export class GameEngine {
       }
     }
 
+    if (this.circuit && !this.circuit.solved) {
+      for (const pad of this.circuit.pads) {
+        const distance = Math.abs(px - pad.x) + Math.abs(py - (pad.y - 36)) * 0.35;
+        if (distance < 72 && distance < nearestDistance) {
+          nearest = {
+            kind: "circuit",
+            label: pad.activated ? `已接通 · ${pad.label}` : `接通中继 · ${pad.label}`,
+            pad,
+            distance
+          };
+          nearestDistance = distance;
+        }
+        if (distance < 58 && this.time > (this.padCoachReadyAt || 0)) {
+          const coachKey = `hint:pad-${pad.id}`;
+          if (!this.hinted.has(coachKey) && pad.coach) {
+            this.padCoachReadyAt = this.time + 5;
+            this.emitHint(pad.coach, pad.coachMood || "neutral", `pad-${pad.id}`);
+          }
+        }
+      }
+    }
+
     if (this.level.bossFight && !this.bossDefeated) {
       const distance = Math.abs(px - this.level.terminal.x) + Math.abs(py - (this.level.terminal.y - 40)) * 0.4;
       if (distance < 118 && distance < nearestDistance) {
@@ -567,7 +778,14 @@ export class GameEngine {
     } else if (!this.terminalSolved) {
       const distance = Math.abs(px - this.level.terminal.x) + Math.abs(py - (this.level.terminal.y - 40)) * 0.4;
       if (distance < 112 && distance < nearestDistance) {
-        nearest = { kind: "terminal", label: `接入终端 · ${this.level.terminal.label}`, distance };
+        const circuitLocked = this.circuit && !this.circuit.solved;
+        nearest = {
+          kind: "terminal",
+          label: circuitLocked
+            ? `接入终端 · 回路 ${this.circuit.progress}/${this.circuit.solution.length}`
+            : `接入终端 · ${this.level.terminal.label}`,
+          distance
+        };
         nearestDistance = distance;
       }
     }
@@ -593,7 +811,11 @@ export class GameEngine {
 
     if (!this.hinted.has("terminal") && !this.terminalSolved && !this.level.bossFight && px > this.level.terminal.x - 460) {
       this.hinted.add("terminal");
-      this.emitHint("终端就在前面。按 E 接入，读代码，别读它的态度。", "neutral", "terminal-near");
+      if (this.circuit && !this.circuit.solved) {
+        this.emitHint("终端被场域回路锁着。先接通地上那些中继，终端才肯抬头。", "serious", "terminal-near");
+      } else {
+        this.emitHint("终端就在前面。按 E 接入，读代码，别读它的态度。", "neutral", "terminal-near");
+      }
     }
   }
 
@@ -615,7 +837,24 @@ export class GameEngine {
       });
       return;
     }
+    if (target.kind === "circuit") {
+      this.activateCircuitPad(target.pad);
+      return;
+    }
     if (target.kind === "terminal") {
+      if (!this.level.bossFight && this.circuit && !this.circuit.solved) {
+        const remaining = this.circuit.solution.length - this.circuit.progress;
+        this.audio?.play("locked");
+        this.callbacks.onToast?.(`终端离线：场域回路还差 ${remaining} 枚中继。`, "warn");
+        this.emitHint(
+          remaining > 0
+            ? `还差 ${remaining} 枚。别猜终端密码，先让地上的执行顺序闭上。`
+            : "回路还没闭合。再检查一次。",
+          "serious",
+          `terminal-circuit-${this.circuit.progress}`
+        );
+        return;
+      }
       this.audio?.play("terminal");
       if (this.level.bossFight) {
         this.callbacks.onPuzzle?.({
@@ -882,7 +1121,10 @@ export class GameEngine {
   }
 
   emitHud(force = false) {
-    const key = `${this.hp}:${this.ink}:${this.bits}:${this.cores}:${this.terminalSolved}:${this.bossHp}:${this.bossSolved}:${this.bossDefeated}`;
+    const circuitKey = this.circuit
+      ? `${this.circuit.progress}:${this.circuit.solved}:${this.circuit.mistakes}`
+      : "none";
+    const key = `${this.hp}:${this.ink}:${this.bits}:${this.cores}:${this.terminalSolved}:${this.bossHp}:${this.bossSolved}:${this.bossDefeated}:${circuitKey}`;
     if (!force && key === this.hudKey) return;
     this.hudKey = key;
     this.callbacks.onHud?.({
@@ -898,7 +1140,15 @@ export class GameEngine {
       bossHp: this.bossHp,
       bossMax: this.bossMax,
       bossSolved: this.bossSolved,
-      bossDefeated: this.bossDefeated
+      bossDefeated: this.bossDefeated,
+      circuit: this.circuit
+        ? {
+            progress: this.circuit.progress,
+            total: this.circuit.solution.length,
+            solved: this.circuit.solved,
+            mistakes: this.circuit.mistakes
+          }
+        : null
     });
   }
 
@@ -943,6 +1193,28 @@ export class GameEngine {
     for (const hazard of this.level.hazards) {
       if (hazard.x + hazard.w < this.camera - 60 || hazard.x > this.camera + VIEW_W + 60) continue;
       ART.drawSpike(ctx, hazard, this.level, this.time);
+    }
+
+    if (this.circuit) {
+      const byId = new Map(this.circuit.pads.map((pad) => [pad.id, pad]));
+      for (let i = 0; i < this.circuit.solution.length - 1; i += 1) {
+        const from = byId.get(this.circuit.solution[i]);
+        const to = byId.get(this.circuit.solution[i + 1]);
+        if (!from?.activated || !to?.activated) continue;
+        if (Math.max(from.x, to.x) < this.camera - 80 || Math.min(from.x, to.x) > this.camera + VIEW_W + 80) continue;
+        ART.drawCircuitLink(ctx, from, to, this.level, this.time);
+      }
+      const nextPadId = this.circuit.hintUntil > this.time ? this.circuit.hintPadId : "";
+      const hintedPadId = this.circuit.hintUntil > this.time ? this.circuit.hintPadId : "";
+      for (const pad of this.circuit.pads) {
+        if (pad.x < this.camera - 140 || pad.x > this.camera + VIEW_W + 140) continue;
+        ART.drawFieldPad(ctx, pad, this.level, this.time, {
+          active: pad.activated,
+          next: pad.id === nextPadId,
+          hinted: pad.id === hintedPadId,
+          solved: this.circuit.solved
+        });
+      }
     }
 
     if (this.level.door) {

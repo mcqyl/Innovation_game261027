@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/world.css">
   <link rel="stylesheet" href="css/game.css">
+  <link rel="stylesheet" href="css/circuit.css">
   <link rel="stylesheet" href="css/panels.css">
 </head>
 <body>
@@ -356,6 +357,21 @@
             <span id="interactText">交谈</span>
           </div>
 
+          <aside class="field-console is-hidden" id="fieldConsole" aria-live="polite">
+            <div class="field-console-head">
+              <span><i></i> FIELD CIRCUIT</span>
+              <b id="fieldProgress">0 / 0</b>
+            </div>
+            <strong id="fieldTitle">场域回路</strong>
+            <p id="fieldPrompt">按代码的执行顺序接通场景里的中继。</p>
+            <pre class="field-code" id="fieldCode"><code></code></pre>
+            <div class="field-steps" id="fieldSteps"></div>
+            <div class="field-console-foot">
+              <span id="fieldMessage">靠近中继，按 E 接通。</span>
+              <button class="field-hint" id="fieldHintBtn" type="button">灵宝指路</button>
+            </div>
+          </aside>
+
           <div class="status-dock hud-glass">
             <div class="status-block status-health">
               <span class="status-label">SYNC</span>
@@ -399,6 +415,14 @@
             <div class="companion-bubble" id="companionBubble">
               <span class="bubble-kicker">LINGBAO // TIP</span>
               <p id="companionBubbleText">别踩红的。真的。</p>
+              <div class="bubble-quiz is-hidden" id="companionQuiz">
+                <div class="bubble-quiz-options" id="companionQuizOptions"></div>
+                <p class="bubble-quiz-explain" id="companionQuizExplain" hidden></p>
+                <div class="bubble-quiz-foot">
+                  <span id="companionQuizMeta">随堂一问 · 答错不扣血</span>
+                  <button id="companionQuizClose" type="button">先跳过</button>
+                </div>
+              </div>
               <button class="bubble-open" id="companionBubbleOpen" type="button">和灵宝说话 <span>→</span></button>
             </div>
             <button class="companion-core" id="companionButton" type="button" aria-label="和 AI 伙伴灵宝对话">
@@ -490,6 +514,29 @@
                     <span>YOUR RESPONSE</span>
                     <small>编译前不会揭示答案</small>
                   </div>
+                  <div class="puzzle-lab" id="puzzleLab">
+                    <button class="lab-toggle" id="puzzleLabToggle" type="button" aria-expanded="false" aria-controls="puzzleLabBody">
+                      <span><i>灵</i><b>灵宝的 20 秒小课堂</b></span>
+                      <small>先理解，再动手</small>
+                    </button>
+                    <div class="lab-body" id="puzzleLabBody" hidden>
+                      <p class="lab-lesson" id="puzzleLesson"></p>
+                      <div class="lab-trace">
+                        <div class="lab-trace-head">
+                          <span>EXECUTION TRACE</span>
+                          <b id="puzzleTraceCounter">0 / 0</b>
+                        </div>
+                        <div class="lab-trace-step">
+                          <strong id="puzzleTraceLabel">准备执行</strong>
+                          <p id="puzzleTraceNote">点“下一步”，让代码在眼前跑一遍。</p>
+                        </div>
+                        <div class="lab-trace-actions">
+                          <button id="puzzleTraceStep" type="button">下一步执行 →</button>
+                          <button id="puzzleTraceReset" type="button">重放</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <div class="answer-area" id="puzzleAnswerArea"></div>
                   <div class="puzzle-feedback is-hidden" id="puzzleFeedback" role="status"></div>
                   <div class="puzzle-hint-panel">
@@ -561,6 +608,15 @@
           </div>
         </div>
       </main>
+
+      <div class="rotate-gate" id="rotateGate" role="dialog" aria-modal="true" aria-labelledby="rotateGateTitle">
+        <div class="rotate-gate-card">
+          <span class="rotate-gate-mark" aria-hidden="true">↻</span>
+          <strong id="rotateGateTitle">把设备横过来</strong>
+          <p>裂隙是横着裂开的。横屏能看见完整场域、触控键和灵宝。</p>
+          <button type="button" id="rotateGateSkip">仍然竖屏游玩</button>
+        </div>
+      </div>
     </section>
   </div>
 

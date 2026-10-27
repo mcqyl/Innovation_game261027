@@ -1013,6 +1013,169 @@ export function drawTerminal(ctx, terminal, level, t, { solved = false, boss = f
   ctx.restore();
 }
 
+export function drawFieldPad(ctx, pad, level, t, { active = false, next = false, hinted = false, solved = false } = {}) {
+  const p = makePalette(level);
+  const { x, y } = pad;
+  const pulse = 0.5 + Math.sin(t * 2.6) * 0.5;
+  const hot = active || solved;
+  const edge = hinted ? p.accent2 : p.accent;
+  const lift = active ? 1 : next ? 1.2 + pulse * 0.35 : 0.7;
+
+  ctx.save();
+
+  if (hinted) {
+    const beam = ctx.createLinearGradient(0, y - 190, 0, y - 6);
+    beam.addColorStop(0, rgba(p.accent2, 0));
+    beam.addColorStop(0.5, rgba(p.accent2, 0.2));
+    beam.addColorStop(1, rgba(p.accent2, 0.55));
+    ctx.fillStyle = beam;
+    ctx.fillRect(x - 15, y - 190, 30, 184);
+    ctx.strokeStyle = rgba(p.accent2, 0.38 + pulse * 0.2);
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 6]);
+    ctx.lineDashOffset = -t * 22;
+    ctx.beginPath();
+    ctx.moveTo(x, y - 172);
+    ctx.lineTo(x, y - 44);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  const floorGlow = ctx.createRadialGradient(x, y, 2, x, y, 58);
+  floorGlow.addColorStop(0, rgba(edge, 0.2 + pulse * 0.08 * lift));
+  floorGlow.addColorStop(1, rgba(edge, 0));
+  ctx.fillStyle = floorGlow;
+  ctx.fillRect(x - 62, y - 40, 124, 76);
+
+  ctx.fillStyle = "rgba(2, 8, 6, 0.7)";
+  ctx.beginPath();
+  ctx.ellipse(x, y + 4, 31, 7, 0, 0, TAU);
+  ctx.fill();
+
+  ctx.strokeStyle = rgba(edge, hot ? 0.64 : 0.3);
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.ellipse(x, y + 2, 25 + pulse * 2 * lift, 6.5, 0, 0, TAU);
+  ctx.stroke();
+
+  ctx.fillStyle = rgba(edge, hot ? 0.16 : 0.07);
+  roundRect(ctx, x - 17, y - 8, 34, 12, 2);
+  ctx.fill();
+  ctx.strokeStyle = rgba(edge, hot ? 0.8 : 0.38);
+  ctx.stroke();
+  ctx.fillStyle = hot ? rgba(edge, 0.9) : rgba(p.edge, 0.38);
+  ctx.fillRect(x - 9, y - 3, 18, 2);
+
+  ctx.strokeStyle = rgba(edge, 0.35 + (next ? pulse * 0.3 : 0));
+  ctx.beginPath();
+  ctx.moveTo(x - 11, y - 8);
+  ctx.lineTo(x - 4, y - 30);
+  ctx.moveTo(x + 11, y - 8);
+  ctx.lineTo(x + 4, y - 30);
+  ctx.stroke();
+
+  ctx.save();
+  ctx.translate(x, y - 42);
+  ctx.rotate(Math.PI / 4);
+  ctx.fillStyle = hot ? rgba(edge, 0.22) : "rgba(4, 12, 9, 0.82)";
+  ctx.fillRect(-9, -9, 18, 18);
+  ctx.strokeStyle = rgba(edge, hot ? 0.85 : 0.45 + (next ? pulse * 0.25 : 0));
+  ctx.lineWidth = 1.2;
+  ctx.strokeRect(-9, -9, 18, 18);
+  ctx.restore();
+
+  ctx.fillStyle = rgba(edge, hot ? 0.95 : 0.55);
+  ctx.beginPath();
+  ctx.arc(x, y - 42, hot ? 2.6 : 1.8, 0, TAU);
+  ctx.fill();
+
+  if (next && !solved) {
+    ctx.strokeStyle = rgba(p.accent, 0.35 + pulse * 0.3);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(x, y - 42, 17 + pulse * 6, 0, TAU);
+    ctx.stroke();
+    drawText(ctx, "E", x, y - 74, { size: 7, color: rgba(p.accent, 0.75), weight: 600 });
+  }
+
+  ctx.save();
+  ctx.font = '600 8px "Segoe UI", "Microsoft YaHei", sans-serif';
+  const measuredLabel = ctx.measureText(pad.label || "").width;
+  ctx.restore();
+  const labelWidth = Math.min(178, Math.max(52, measuredLabel + 22));
+  ctx.fillStyle = "rgba(3, 10, 8, 0.62)";
+  roundRect(ctx, x - labelWidth / 2, y - 94, labelWidth, 17, 2);
+  ctx.fill();
+  ctx.strokeStyle = rgba(edge, hot ? 0.3 : 0.14);
+  ctx.stroke();
+  drawText(ctx, pad.label || "RELAY", x, y - 85.5, {
+    size: 8,
+    color: hot ? rgba(p.edge, 0.98) : rgba(p.edge, 0.72),
+    weight: 600,
+    mono: false
+  });
+  drawText(ctx, hot ? "SYNCED" : hinted ? "TRACE" : "RELAY", x, y - 101, {
+    size: 5,
+    color: rgba(edge, hot ? 0.72 : 0.45),
+    weight: 500
+  });
+
+  if (active) {
+    ctx.strokeStyle = rgba(p.accent, 0.3);
+    ctx.beginPath();
+    ctx.moveTo(x - 14, y - 52);
+    ctx.lineTo(x - 5, y - 45);
+    ctx.lineTo(x + 13, y - 61);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+export function drawCircuitLink(ctx, from, to, level, t) {
+  const p = makePalette(level);
+  const startX = from.x;
+  const startY = from.y - 28;
+  const endX = to.x;
+  const endY = to.y - 28;
+  const midX = (startX + endX) / 2;
+  const arc = 54 + Math.min(120, Math.abs(endX - startX) * 0.06);
+  const controlY = Math.min(startY, endY) - arc;
+  const point = (progress) => {
+    const inv = 1 - progress;
+    return {
+      x: inv * inv * startX + 2 * inv * progress * midX + progress * progress * endX,
+      y: inv * inv * startY + 2 * inv * progress * controlY + progress * progress * endY
+    };
+  };
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.strokeStyle = rgba(p.accent, 0.16);
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.quadraticCurveTo(midX, controlY, endX, endY);
+  ctx.stroke();
+  ctx.strokeStyle = rgba(p.accent, 0.55);
+  ctx.lineWidth = 1;
+  ctx.setLineDash([7, 9]);
+  ctx.lineDashOffset = -t * 26;
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.quadraticCurveTo(midX, controlY, endX, endY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  for (let i = 0; i < 3; i += 1) {
+    const progress = (t * 0.14 + i / 3) % 1;
+    const dot = point(progress);
+    ctx.fillStyle = rgba(p.accent, 0.4 + Math.sin(progress * Math.PI) * 0.5);
+    ctx.beginPath();
+    ctx.arc(dot.x, dot.y, 1.8, 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 export function drawDoor(ctx, door, level, t, { open = false } = {}) {
   const p = makePalette(level);
   const { x, y } = door;
@@ -1811,6 +1974,8 @@ export const ART = {
   drawCore,
   drawCheckpoint,
   drawTerminal,
+  drawFieldPad,
+  drawCircuitLink,
   drawDoor,
   drawPlayer,
   drawBug,

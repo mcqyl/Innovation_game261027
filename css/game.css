@@ -2024,6 +2024,66 @@
   pointer-events: none;
 }
 
+.rotate-gate {
+  display: none;
+  position: absolute;
+  z-index: 45;
+  inset: 0;
+  place-items: center;
+  background: rgba(4, 10, 12, 0.82);
+  backdrop-filter: blur(6px);
+}
+
+.rotate-gate-card {
+  width: min(300px, 84vw);
+  padding: 26px 22px 22px;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+  background: rgba(10, 20, 22, 0.94);
+  border: 1px solid rgba(var(--accent-rgb), 0.4);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.rotate-gate-mark {
+  font-size: 30px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.rotate-gate-card strong {
+  font-family: var(--font-display);
+  font-size: 17px;
+  letter-spacing: 0.06em;
+  color: var(--paper);
+}
+
+.rotate-gate-card p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.rotate-gate-card button {
+  margin-top: 6px;
+  padding: 9px 16px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--muted-2);
+  background: transparent;
+  border: 1px solid rgba(var(--accent-rgb), 0.32);
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+.rotate-gate-card button:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 /* ------------------------------------------------------------
    Game responsive
    ------------------------------------------------------------ */
@@ -2470,6 +2530,18 @@
 
   .interact-hint {
     bottom: 106px;
+  }
+}
+
+@media (orientation: portrait) and (pointer: coarse) {
+  .rotate-gate {
+    display: grid;
+    position: fixed;
+    z-index: 210;
+  }
+
+  body.portrait-ok .rotate-gate {
+    display: none;
   }
 }
 
