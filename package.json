@@ -1,0 +1,15 @@
+{
+  "name": "code-rift",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CODE RIFT - a story-driven 2D programming adventure",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "check": "node --check server.js && node --check js/main.js && node --check js/levels.js && node --check js/engine.js && node --check js/art.js && node --check js/companion.js && node --check js/audio.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#071015">
+  <meta name="description" content="CODE RIFT 代码裂隙：一款可以边玩边学 Python、C、Java 的 2D 剧情冒险游戏。三种语言分支独立闯关，还有会聊天、会给提示的 AI 灵宝。">
+  <title>CODE RIFT // 代码裂隙</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/world.css">
+  <link rel="stylesheet" href="css/game.css">
+  <link rel="stylesheet" href="css/panels.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="ambient-noise" aria-hidden="true"></div>
+
+    <!-- =========================
+         BOOT / MAIN TITLE
+         ========================= -->
+    <section class="screen boot-screen" id="bootScreen" aria-label="游戏主菜单">
+      <div class="boot-backdrop" aria-hidden="true">
+        <div class="boot-grid"></div>
+        <div class="boot-aurora a1"></div>
+        <div class="boot-aurora a2"></div>
+        <div class="boot-spectrum"></div>
+        <div class="floating-token token-a">def</div>
+        <div class="floating-token token-b">*p</div>
+        <div class="floating-token token-c">class</div>
+        <div class="floating-token token-d">{ }</div>
+        <div class="floating-token token-e">null</div>
+      </div>
+
+      <header class="boot-header">
+        <div class="brand-lockup" aria-label="CODE RIFT">
+          <span class="brand-mark"><span>C</span><span>R</span></span>
+          <span class="brand-copy">
+            <strong>CODE//RIFT</strong>
+            <small>COMPILE OR PERISH</small>
+          </span>
+        </div>
+        <div class="header-side">
+          <span class="build-chip"><i></i> INTERACTIVE BUILD 1.0</span>
+          <button class="icon-text-btn" id="bootSound" type="button" aria-label="开启或关闭声音" aria-pressed="true">
+            <span class="sound-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="js-sound-label">声音开启</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="boot-main">
+        <div class="boot-copy">
+          <p class="eyebrow"><span class="eyebrow-dot"></span> A 2D CODING ADVENTURE / 边玩边学</p>
+          <h1 class="wordmark" aria-label="CODE RIFT">
+            <span class="wordmark-code">CODE</span><span class="wordmark-slash">//</span><span class="wordmark-rift">RIFT</span>
+          </h1>
+          <div class="cn-lockup">
+            <span class="cn-title">代码裂隙</span>
+            <span class="cn-rule"></span>
+            <span class="cn-sub">三种语言，三条独立分支，一只只有七秒记忆的 AI。</span>
+          </div>
+          <p class="hero-desc">
+            宇宙主分支被 null 咬出了三个洞。你被临时聘为「会跳的实习生」，
+            要在一座会漏语法、漏地址、漏对象的 2D 世界里，修好你看得顺眼的那条语言分支。
+          </p>
+
+          <div class="boot-actions">
+            <button class="btn btn-primary btn-large" id="bootStart" type="button">
+              <span>选择语言分支</span>
+              <span class="btn-key">ENTER</span>
+            </button>
+            <button class="btn btn-quiet" id="bootContinue" type="button" hidden>
+              <span>继续上次的裂隙</span>
+              <span class="btn-arrow">→</span>
+            </button>
+          </div>
+          <p class="boot-progress-hint" id="bootProgressHint">还没有修复记录。先选一门语言，掉进去。</p>
+
+          <dl class="boot-facts">
+            <div><dt>03</dt><dd>条独立语言线</dd></div>
+            <div><dt>09</dt><dd>道可玩裂隙</dd></div>
+            <div><dt>∞</dt><dd>只灵宝的嘴硬</dd></div>
+          </dl>
+        </div>
+
+        <div class="boot-visual" aria-hidden="true">
+          <div class="portal">
+            <div class="portal-halo halo-1"></div>
+            <div class="portal-halo halo-2"></div>
+            <div class="portal-halo halo-3"></div>
+            <span class="portal-cross cross-1"></span>
+            <span class="portal-cross cross-2"></span>
+            <span class="portal-mark mark-n">N</span>
+            <span class="portal-mark mark-w">W</span>
+            <span class="portal-mark mark-s">S</span>
+            <span class="portal-mark mark-e">E</span>
+
+            <div class="hero-core">
+              <div class="hero-core-inner">
+                <span class="core-eye eye-l"></span>
+                <span class="core-eye eye-r"></span>
+                <span class="core-mouth"></span>
+              </div>
+              <span class="core-spark spark-1"></span>
+              <span class="core-spark spark-2"></span>
+              <span class="core-spark spark-3"></span>
+            </div>
+
+            <div class="portal-caption">
+              <span>AI COMPANION</span>
+              <strong>灵宝 · 七秒</strong>
+              <small id="bootAiStatus">正在同步远端意识…</small>
+            </div>
+          </div>
+
+          <div class="boot-terminal">
+            <div class="mini-terminal-head"><span></span><span></span><span></span><b>rift@main:~</b></div>
+            <div class="mini-terminal-body">
+              <p><i>01</i>&gt; scan --branches</p>
+              <p><i>02</i>python · c · java <em>found</em></p>
+              <p><i>03</i>&gt; detect null-signature</p>
+              <p class="warn"><i>04</i>WARNING: 3 uncaught fragments</p>
+              <p><i>05</i>&gt; hire intern --can-jump</p>
+              <p class="ok"><i>06</i>READY. good luck, intern.</p>
+              <span class="terminal-caret"></span>
+            </div>
+          </div>
+
+          <div class="boot-sticker sticker-left">NO SAVE<br>NEEDED TO<br>LOOK COOL</div>
+          <div class="boot-sticker sticker-right">BRANCHES<br>ARE<br>INDEPENDENT</div>
+        </div>
+      </main>
+
+      <footer class="boot-footer">
+        <span>LOCAL-FIRST · ZERO DEPENDENCIES · 2D CANVAS</span>
+        <span class="footer-langs">PYTHON / C / JAVA / 中文</span>
+        <span>PRESS ENTER TO ENTER THE RIFT</span>
+      </footer>
+    </section>
+
+    <!-- =========================
+         LANGUAGE SELECT
+         ========================= -->
+    <section class="screen select-screen is-hidden" id="selectScreen" aria-label="选择语言分支">
+      <div class="select-backdrop" aria-hidden="true">
+        <div class="select-grid"></div>
+        <div class="select-orb o1"></div>
+        <div class="select-orb o2"></div>
+      </div>
+      <header class="subpage-header">
+        <div class="brand-lockup small">
+          <span class="brand-mark"><span>C</span><span>R</span></span>
+          <span class="brand-copy"><strong>CODE//RIFT</strong><small>BRANCH SELECTOR</small></span>
+        </div>
+        <div class="header-side">
+          <span class="build-chip" id="selectProgressChip"><i></i> 0 / 9 RIFTS STABILIZED</span>
+          <button class="icon-text-btn" id="selectKnowledgeTop" type="button">知识星图</button>
+          <button class="icon-text-btn" id="selectSound" type="button" aria-label="开启或关闭声音" aria-pressed="true">
+            <span class="sound-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="js-sound-label">声音开启</span>
+          </button>
+          <button class="icon-text-btn" id="selectBack" type="button">返回标题</button>
+        </div>
+      </header>
+
+      <main class="select-main">
+        <div class="select-intro">
+          <p class="eyebrow"><span class="eyebrow-dot"></span> SELECT A LANGUAGE BRANCH</p>
+          <h1>先修哪一条<br><em>漏水</em>的分支？</h1>
+          <p>三种语言独立成章。每条分支有 2 个探索关卡和 1 个专属 Null 奇点，进度互不影响。你可以随时回来换一条重开。</p>
+          <div class="select-meta">
+            <button class="ghost-link" id="selectKnowledgeBtn" type="button">
+              <span>打开知识星图</span><span class="link-arrow">↗</span>
+            </button>
+            <span class="select-hint">数字是已修复裂隙 / 总裂隙</span>
+          </div>
+        </div>
+
+        <div class="campaign-grid" id="campaignGrid" aria-live="polite">
+          <!-- language campaign cards injected by js/main.js -->
+        </div>
+
+        <aside class="select-companion">
+          <p class="mini-label">LINGBAO / 7 SECONDS</p>
+          <button class="map-companion-card" id="selectCompanionBtn" type="button">
+            <span class="lingbao-orb small" aria-hidden="true">
+              <span class="lingbao-orb-ring"></span>
+              <span class="lingbao-orb-body"><span class="eye eye-l"></span><span class="eye eye-r"></span><span class="mouth"></span></span>
+            </span>
+            <span><strong>灵宝在线</strong><small>“选语言这件事，七秒内决定。超过七秒我会催你。”</small></span>
+          </button>
+          <div class="companion-status-line"><i class="live-dot"></i><span id="selectAiStatus">正在同步远端意识</span></div>
+          <div class="select-clear" id="selectAllClear" hidden>
+            <b>ALL BRANCHES STABLE</b>
+            <span>三条语言线都通了。null 已被迫写离职信。</span>
+          </div>
+        </aside>
+      </main>
+
+      <footer class="subpage-footer">
+        <span>每个分支都能独立通关・排名按源核 / 失误 / 回滚综合评定</span>
+        <span>SELECT. PLAY. COMPILE.</span>
+      </footer>
+    </section>
+
+    <!-- =========================
+         CAMPAIGN MAP
+         ========================= -->
+    <section class="screen map-screen is-hidden" id="mapScreen" aria-label="关卡星图">
+      <div class="map-backdrop" aria-hidden="true">
+        <div class="map-grid"></div>
+      </div>
+      <header class="subpage-header map-header">
+        <div class="brand-lockup small">
+          <button class="brand-button" id="mapBrand" type="button" aria-label="返回标题">
+            <span class="brand-mark"><span>C</span><span>R</span></span>
+          </button>
+          <span class="brand-copy"><strong>CODE//RIFT</strong><small>MISSION CONTROL</small></span>
+        </div>
+        <div class="map-header-crumb">
+          <span id="mapCampaignCode">BRANCH P</span>
+          <b>/</b>
+          <span id="mapCampaignName">蟒语分支</span>
+        </div>
+        <div class="header-side">
+          <button class="icon-text-btn" id="mapSwitch" type="button">切换语言</button>
+          <button class="icon-text-btn" id="mapKnowledgeTop" type="button">知识星图</button>
+          <button class="icon-text-btn" id="mapSound" type="button" aria-label="开启或关闭声音" aria-pressed="true">
+            <span class="sound-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="js-sound-label">声音开启</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="map-main">
+        <aside class="map-side">
+          <p class="eyebrow"><span class="eyebrow-dot"></span> BRANCH ROUTE</p>
+          <h1 id="mapCampaignTitle">蟒语分支</h1>
+          <p class="map-tagline" id="mapCampaignTagline">用空格说服世界。</p>
+          <p class="map-description" id="mapCampaignDesc"></p>
+
+          <div class="map-progress-card">
+            <div class="map-progress-head">
+              <span>分支稳定度</span>
+              <b id="mapProgressText">0 / 3</b>
+            </div>
+            <div class="map-progress-track"><i id="mapProgressBar"></i></div>
+            <div class="map-progress-foot">
+              <span id="mapCampaignDifficulty">难度 / 入门</span>
+              <span>3 道裂隙</span>
+            </div>
+          </div>
+
+          <div class="map-side-actions">
+            <button class="btn btn-primary" id="mapContinueBtn" type="button">继续下一关 <span class="btn-arrow">→</span></button>
+            <button class="ghost-link" id="mapKnowledgeBtn" type="button"><span>查看知识卡</span><span class="link-arrow">↗</span></button>
+          </div>
+
+          <button class="map-companion-card" id="mapCompanionBtn" type="button">
+            <span class="lingbao-orb small" aria-hidden="true">
+              <span class="lingbao-orb-ring"></span>
+              <span class="lingbao-orb-body"><span class="eye eye-l"></span><span class="eye eye-r"></span><span class="mouth"></span></span>
+            </span>
+            <span><strong>灵宝在偷看地图</strong><small id="mapCompanionText">“这条路看起来会掉下去。要不要先问我？”</small></span>
+          </button>
+        </aside>
+
+        <section class="map-route-wrap">
+          <div class="map-route-head">
+            <div>
+              <p class="mini-label">THE LONG WAY AROUND</p>
+              <h2>裂隙路线</h2>
+            </div>
+            <div class="route-legend">
+              <span><i class="dot done"></i>已完成</span>
+              <span><i class="dot open"></i>可进入</span>
+              <span><i class="dot locked"></i>锁定</span>
+            </div>
+          </div>
+          <div class="map-level-list" id="mapLevels"></div>
+          <div class="map-bottom-note">
+            <span>提示</span>
+            <p>先修好本分支的两道裂隙，主分支控制台前才会亮起 Null 奇点。</p>
+          </div>
+        </section>
+
+        <aside class="mission-drawer" id="missionDrawer" aria-live="polite">
+          <!-- mission dossier injected by js/main.js -->
+        </aside>
+      </main>
+
+      <footer class="subpage-footer">
+        <span id="mapFooterLeft">PYTHON BRANCH / INDEPENDENT CAMPAIGN</span>
+        <span>知识不会因为选错语言而报错。</span>
+      </footer>
+    </section>
+
+    <!-- =========================
+         GAME
+         ========================= -->
+    <section class="screen game-screen is-hidden" id="gameScreen" aria-label="游戏画面">
+      <header class="game-header">
+        <div class="brand-lockup small game-brand">
+          <span class="brand-mark"><span>C</span><span>R</span></span>
+          <span class="brand-copy"><strong>CODE//RIFT</strong><small id="gameCampaignCode">P BRANCH</small></span>
+        </div>
+        <div class="game-crumb">
+          <span id="gameWorldLabel">P-01 / INDENT GROVE</span>
+          <b>·</b>
+          <span id="gameLevelTitle">缩进之森</span>
+        </div>
+        <div class="game-actions">
+          <span class="ai-online-pill" id="gameAiPill"><i></i> LINGBAO LINK</span>
+          <button class="square-btn" id="gameKnowledgeBtn" type="button" aria-label="打开知识星图">书</button>
+          <button class="square-btn" id="gameSoundBtn" type="button" aria-label="开关声音" aria-pressed="true">
+            <span class="sound-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+          </button>
+          <button class="square-btn" id="gamePauseBtn" type="button" aria-label="暂停游戏">Ⅱ</button>
+        </div>
+      </header>
+
+      <main class="stage-wrap">
+        <div class="stage" id="stage">
+          <canvas id="gameCanvas" width="1280" height="720" aria-label="2D 编程冒险游戏画面"></canvas>
+          <div class="stage-vignette" aria-hidden="true"></div>
+          <div class="stage-grain" aria-hidden="true"></div>
+          <div class="scanline" aria-hidden="true"></div>
+
+          <div class="scene-flash" id="sceneFlash" aria-hidden="true"></div>
+          <div class="scene-title" id="sceneTitle" aria-hidden="true">
+            <span class="scene-kicker" id="sceneKicker">RIFT ENTRY</span>
+            <strong id="sceneName">缩进之森</strong>
+            <small id="sceneSub">P-01 / THE INDENT GROVE</small>
+          </div>
+
+          <div class="quest-panel hud-glass" id="questPanel">
+            <div class="quest-top">
+              <span class="hud-kicker"><i></i> ACTIVE RIFT</span>
+              <span id="questCores">源核 0/3</span>
+            </div>
+            <strong id="questTitle">读懂终端的缩进谜题</strong>
+            <p id="questDetail">找到终端，修复藤蔓编译门。</p>
+            <div class="quest-meter"><i id="questBar"></i></div>
+          </div>
+
+          <div class="boss-hud" id="bossHud" hidden>
+            <div class="boss-hud-name"><span>UNCAUGHT EXCEPTION</span><strong id="bossHudTitle">NULL POINTER</strong></div>
+            <div class="boss-hud-track">
+              <span class="boss-seg"></span><span class="boss-seg"></span><span class="boss-seg"></span>
+            </div>
+          </div>
+
+          <div class="interact-hint is-hidden" id="interactHint">
+            <span class="keycap">E</span>
+            <span id="interactText">交谈</span>
+          </div>
+
+          <div class="status-dock hud-glass">
+            <div class="status-block status-health">
+              <span class="status-label">SYNC</span>
+              <div class="heart-row" id="heartRow" aria-label="生命值 3"></div>
+            </div>
+            <span class="status-rule"></span>
+            <div class="status-block">
+              <span class="status-label">CTRL·Z</span>
+              <div class="rewind-row" id="rewindRow" aria-label="回溯墨水 3"></div>
+            </div>
+            <span class="status-rule"></span>
+            <div class="status-block status-bits">
+              <span class="status-label">FRAGMENTS</span>
+              <strong id="bitCounter">000</strong>
+            </div>
+          </div>
+
+          <div class="control-dock">
+            <span><kbd>A</kbd><kbd>D</kbd> 移动</span>
+            <span><kbd>SPACE</kbd> 二段跳</span>
+            <span><kbd>E</kbd> 交互</span>
+            <span><kbd>Z</kbd> 回溯</span>
+          </div>
+
+          <div class="touch-controls" id="touchControls" aria-label="触屏控制">
+            <div class="touch-move">
+              <button type="button" data-touch="left" aria-label="向左">‹</button>
+              <button type="button" data-touch="right" aria-label="向右">›</button>
+            </div>
+            <div class="touch-actions">
+              <button type="button" data-touch="rewind" aria-label="回溯">Z</button>
+              <button type="button" data-touch="jump" class="touch-jump" aria-label="跳跃">↑</button>
+              <button type="button" data-touch="interact" aria-label="交互">E</button>
+            </div>
+          </div>
+
+          <div class="rotate-hint">横屏游玩，视野更宽</div>
+
+          <!-- COMPANION WIDGET -->
+          <aside class="companion-widget is-hidden" id="companionWidget" aria-live="polite">
+            <div class="companion-bubble" id="companionBubble">
+              <span class="bubble-kicker">LINGBAO // TIP</span>
+              <p id="companionBubbleText">别踩红的。真的。</p>
+              <button class="bubble-open" id="companionBubbleOpen" type="button">和灵宝说话 <span>→</span></button>
+            </div>
+            <button class="companion-core" id="companionButton" type="button" aria-label="和 AI 伙伴灵宝对话">
+              <span class="companion-core-ring"></span>
+              <span class="companion-core-halo"></span>
+              <span class="lingbao-orb game-orb" aria-hidden="true">
+                <span class="lingbao-orb-ring"></span>
+                <span class="lingbao-orb-body"><span class="eye eye-l"></span><span class="eye eye-r"></span><span class="mouth"></span></span>
+              </span>
+              <span class="companion-name">灵宝 <i>LIVE</i></span>
+            </button>
+            <button class="companion-minimize" id="companionToggle" type="button" aria-label="收起灵宝">−</button>
+          </aside>
+
+          <div class="companion-stub is-hidden" id="companionStub">
+            <button id="companionRestore" type="button" aria-label="叫回灵宝">
+              <span class="lingbao-orb mini" aria-hidden="true">
+                <span class="lingbao-orb-ring"></span>
+                <span class="lingbao-orb-body"><span class="eye eye-l"></span><span class="eye eye-r"></span></span>
+              </span>
+              <span>灵宝在打盹</span>
+            </button>
+          </div>
+
+          <!-- DIALOGUE -->
+          <div class="overlay dialogue-layer is-hidden" id="dialogueLayer" role="dialog" aria-modal="true" aria-label="剧情对话">
+            <div class="dialogue-shell" id="dialogueShell">
+              <div class="dialogue-portrait" id="dialoguePortrait"><span id="dialogueInitial">灵</span><i></i></div>
+              <div class="dialogue-body">
+                <div class="dialogue-meta">
+                  <span id="dialogueWho">灵宝</span>
+                  <small id="dialogueCounter">01 / 04</small>
+                </div>
+                <p class="dialogue-text" id="dialogueText"></p>
+              </div>
+              <button class="dialogue-next" id="dialogueNext" type="button">继续 <span>SPACE</span></button>
+            </div>
+          </div>
+
+          <!-- PUZZLE TERMINAL -->
+          <div class="overlay puzzle-layer is-hidden" id="puzzleLayer" role="dialog" aria-modal="true" aria-labelledby="puzzleTitle">
+            <div class="puzzle-shell">
+              <div class="puzzle-chrome">
+                <div class="terminal-lights"><i></i><i></i><i></i></div>
+                <span class="terminal-path">rift@terminal:~/$ fix --branch=<b id="puzzleBranch">P</b></span>
+                <div class="puzzle-tags">
+                  <span id="puzzleLangTag">PYTHON</span>
+                  <span id="puzzleBossLabel" hidden>BOSS LINK</span>
+                  <button class="terminal-close" id="puzzleClose" type="button" aria-label="离开终端">×</button>
+                </div>
+              </div>
+
+              <div class="puzzle-heading">
+                <div>
+                  <p class="mini-label" id="puzzleEyebrow">ROGUE TERMINAL / REPAIR PROTOCOL</p>
+                  <h2 id="puzzleTitle">缩进协议</h2>
+                  <p id="puzzleSubtitle">读懂循环之后，门才会打开。</p>
+                </div>
+                <div class="puzzle-boss-bar" id="puzzleBossBar" hidden>
+                  <span>NULL POINTER / SHELLS</span>
+                  <div class="boss-shells" id="puzzleBossShells"><i></i><i></i><i></i></div>
+                </div>
+              </div>
+
+              <div class="puzzle-columns">
+                <section class="puzzle-code-col">
+                  <div class="code-window">
+                    <div class="code-window-head">
+                      <span id="puzzleFileName">indent_grove.py</span>
+                      <span class="code-live"><i></i> UNSAVED FIX</span>
+                    </div>
+                    <div class="code-scroll">
+                      <pre class="code-display" id="puzzleCode"><code></code></pre>
+                      <div class="code-lines is-hidden" id="puzzleLines"></div>
+                    </div>
+                    <div class="code-window-foot">
+                      <span>Ln <b id="puzzleLineCount">4</b>, Col 1</span>
+                      <span>UTF-8 · LF</span>
+                    </div>
+                  </div>
+                  <div class="puzzle-prompt">
+                    <span>01</span>
+                    <p id="puzzlePrompt">终端想让你预测输出。</p>
+                  </div>
+                </section>
+
+                <section class="puzzle-response-col">
+                  <div class="response-head">
+                    <span>YOUR RESPONSE</span>
+                    <small>编译前不会揭示答案</small>
+                  </div>
+                  <div class="answer-area" id="puzzleAnswerArea"></div>
+                  <div class="puzzle-feedback is-hidden" id="puzzleFeedback" role="status"></div>
+                  <div class="puzzle-hint-panel">
+                    <button class="text-btn" id="puzzleHintBtn" type="button"><i>?</i> 让灵宝提示</button>
+                    <p id="puzzleHintText" hidden></p>
+                  </div>
+                  <div class="puzzle-actions">
+                    <button class="btn btn-primary" id="puzzleSubmit" type="button" hidden>写入修复 <span>ENTER</span></button>
+                    <button class="text-btn muted" id="puzzleExit" type="button">暂时离开终端</button>
+                  </div>
+                  <p class="puzzle-shortcut">ENTER 提交 · ESC 关闭终端</p>
+                </section>
+              </div>
+            </div>
+          </div>
+
+          <!-- PAUSE -->
+          <div class="overlay pause-layer is-hidden" id="pauseLayer" role="dialog" aria-modal="true" aria-label="游戏暂停">
+            <div class="pause-shell">
+              <div class="pause-head">
+                <p class="mini-label">SIGNAL HELD / 暂停</p>
+                <h2>世界暂停编译。</h2>
+                <p>灵宝正在旁边假装自己没有偷看你的操作。</p>
+              </div>
+              <div class="pause-body">
+                <div class="pause-controls">
+                  <p class="mini-label">CONTROLS</p>
+                  <dl>
+                    <div><dt><kbd>A</kbd><kbd>D</kbd></dt><dd>左右移动</dd></div>
+                    <div><dt><kbd>SPACE</kbd></dt><dd>跳跃 / 空中二段跳</dd></div>
+                    <div><dt><kbd>E</kbd></dt><dd>对话 / 终端 / 进门</dd></div>
+                    <div><dt><kbd>Z</kbd></dt><dd>回声回溯（3 格墨水）</dd></div>
+                    <div><dt><kbd>ESC</kbd></dt><dd>暂停</dd></div>
+                  </dl>
+                </div>
+                <div class="pause-actions">
+                  <button class="btn btn-primary" id="pauseResume" type="button">继续修复 <span>ESC</span></button>
+                  <button class="btn btn-outline" id="pauseKnowledge" type="button">打开知识星图</button>
+                  <button class="btn btn-outline" id="pauseRestart" type="button">重开本关</button>
+                  <button class="btn btn-outline" id="pauseCompanion" type="button">叫灵宝聊天</button>
+                  <button class="text-btn danger" id="pauseMap" type="button">放弃本关，返回星图</button>
+                </div>
+              </div>
+              <p class="pause-note">未完成的关卡进度不会保存，但已收集的知识卡会保留。</p>
+            </div>
+          </div>
+
+          <!-- LEVEL COMPLETE -->
+          <div class="overlay complete-layer is-hidden" id="completeLayer" role="dialog" aria-modal="true" aria-labelledby="completeTitle">
+            <div class="complete-shell">
+              <div class="complete-ribbon"><i></i><span>RIFT STABILIZED</span><i></i></div>
+              <div class="complete-rank">
+                <span class="rank-label">RANK</span>
+                <strong id="completeRank">A</strong>
+                <span class="rank-rule"></span>
+              </div>
+              <p class="mini-label" id="completeKicker">P-01 / CLEARED</p>
+              <h2 id="completeTitle">缩进之森</h2>
+              <p class="complete-sub" id="completeSubtitle">藤蔓门已完成缩进，整片森林松了一口气。</p>
+              <div class="complete-stats" id="completeStats"></div>
+              <div class="complete-concept" id="completeConcept"></div>
+              <blockquote id="completeQuote">“先看懂空格，再让世界让路。”</blockquote>
+              <div class="complete-actions">
+                <button class="btn btn-primary" id="completeNextBtn" type="button">前往下一道裂隙 <span class="btn-arrow">→</span></button>
+                <button class="btn btn-outline" id="completeReplayBtn" type="button">重玩本关</button>
+                <button class="text-btn" id="completeMapBtn" type="button">返回星图</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </section>
+  </div>
+
+  <!-- =========================
+       COMPANION CHAT PANEL
+       ========================= -->
+  <div class="companion-scrim is-hidden" id="companionScrim"></div>
+  <aside class="companion-panel is-hidden" id="companionPanel" aria-label="AI 伙伴灵宝对话" aria-hidden="true">
+    <div class="ai-panel-head">
+      <div class="ai-identity">
+        <span class="lingbao-orb chat-orb" aria-hidden="true">
+          <span class="lingbao-orb-ring"></span>
+          <span class="lingbao-orb-body"><span class="eye eye-l"></span><span class="eye eye-r"></span><span class="mouth"></span></span>
+        </span>
+        <span><strong>灵宝 · 七秒</strong><small id="companionStatus">正在建立远端意识…</small></span>
+      </div>
+      <button class="terminal-close" id="companionClose" type="button" aria-label="关闭对话">×</button>
+    </div>
+    <div class="ai-context-bar">
+      <span class="context-dot"></span>
+      <p id="aiContextPill">当前上下文：主菜单</p>
+      <span id="aiModelTag">CLOUD</span>
+    </div>
+    <div class="ai-messages" id="aiMessages" role="log" aria-live="polite"></div>
+    <div class="ai-typing is-hidden" id="aiTyping">
+      <span></span><span></span><span></span><small>灵宝正在翻它的七秒记忆…</small>
+    </div>
+    <div class="ai-suggestions" id="aiSuggestions"></div>
+    <form class="ai-form" id="aiForm">
+      <label class="sr-only" for="aiInput">输入想对灵宝说的话</label>
+      <textarea id="aiInput" rows="1" maxlength="500" placeholder="问提示、问代码，或者吐槽剧情…"></textarea>
+      <button type="submit" id="aiSend" aria-label="发送消息">发送 <span>↗</span></button>
+    </form>
+    <p class="ai-footnote">灵宝可能会犯错。它只有七秒记忆，但接口是认真的。云端不可用时会自动切换到本地知识缓存。</p>
+  </aside>
+
+  <!-- =========================
+       KNOWLEDGE CODEX
+       ========================= -->
+  <div class="overlay knowledge-overlay is-hidden" id="knowledgeOverlay" role="dialog" aria-modal="true" aria-labelledby="knowledgeTitle">
+    <div class="knowledge-shell">
+      <header class="knowledge-head">
+        <div>
+          <p class="mini-label">LEARNING ARCHIVE / 永久保留</p>
+          <h2 id="knowledgeTitle">知识星图</h2>
+          <p>每一张卡都是从裂隙里捞出来的概念。换语言、重开、掉下去都不会丢。</p>
+        </div>
+        <button class="terminal-close" id="knowledgeClose" type="button" aria-label="关闭知识星图">×</button>
+      </header>
+      <div class="knowledge-toolbar">
+        <div class="knowledge-filters" id="knowledgeFilters">
+          <button class="is-active" type="button" data-filter="ALL">全部</button>
+          <button type="button" data-filter="PYTHON">Python</button>
+          <button type="button" data-filter="C">C</button>
+          <button type="button" data-filter="JAVA">Java</button>
+          <button type="button" data-filter="DEBUG">调试</button>
+        </div>
+        <span class="knowledge-count" id="knowledgeCount">0 / 16</span>
+      </div>
+      <div class="knowledge-grid" id="knowledgeGrid"></div>
+      <div class="knowledge-empty is-hidden" id="knowledgeEmpty">
+        <span>NO CARDS YET</span>
+        <p>先去和一台终端吵一架，知识卡就会自己长出来。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================
+       CAMPAIGN ENDING
+       ========================= -->
+  <div class="overlay ending-overlay is-hidden" id="endingOverlay" role="dialog" aria-modal="true" aria-labelledby="endingTitle">
+    <div class="ending-burst" aria-hidden="true"></div>
+    <div class="ending-shell">
+      <p class="ending-kicker"><span></span> BRANCH RECOMPILED <span></span></p>
+      <h2 id="endingTitle"><em id="endingCampaign">PYTHON</em> 分支已稳定</h2>
+      <p class="ending-sub" id="endingSubtitle">NullPointer 在这条语言线上的分身已被捕获并解释。</p>
+      <div class="ending-stats" id="endingStats"></div>
+      <blockquote id="endingQuote">“错误不是世界崩坏的原因。拒绝看懂错误，才是。”</blockquote>
+      <p class="ending-note" id="endingNote">灵宝的记忆即将回收。它说这次不用重写。</p>
+      <div class="ending-actions">
+        <button class="btn btn-primary" id="endingSelectBtn" type="button">选择其他语言 <span class="btn-arrow">→</span></button>
+        <button class="btn btn-outline" id="endingKnowledgeBtn" type="button">查看知识星图</button>
+        <button class="text-btn" id="endingReplayBtn" type="button">重玩本关</button>
+      </div>
+      <p class="ending-allclear" id="endingAllClear" hidden>ALL THREE BRANCHES STABLE / 全域编译完成</p>
+    </div>
+  </div>
+
+  <div class="toast-layer" id="toastLayer" aria-live="polite"></div>
+  <noscript><div class="no-script">这个游戏需要启用 JavaScript 才能让裂隙漏水。</div></noscript>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
